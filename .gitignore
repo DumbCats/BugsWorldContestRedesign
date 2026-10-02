@@ -163,6 +163,7 @@ target/
 .classpath
 .project
 .settings/
+bin/
 .vscode/*
 !.vscode/extensions.json
 .DS_Store
