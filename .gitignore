@@ -141,3 +141,32 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# --- JVM backend ---
+*.class
+*.jar
+*.war
+hs_err_pid*
+replay_pid*
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Maven
+target/
+
+# --- Editors / OS ---
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+CLAUDE.md
+
+# --- OSU course material (copyrighted, keep out of the repo) ---
+reference/
