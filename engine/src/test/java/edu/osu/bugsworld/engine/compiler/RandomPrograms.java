@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Random;
 
 /** Generates random BL programs (mostly valid) and random corruptions of them. */
-final class RandomPrograms {
+public final class RandomPrograms {
 
     private static final List<String> NAME_POOL = List.of(
             "a", "b", "go", "turn-around", "x1", "Move", "end", "a-", "Hunt-2", "step", "IFF", "skipper");
@@ -17,12 +17,12 @@ final class RandomPrograms {
     private final Random random;
     private final List<String> out = new ArrayList<>();
 
-    RandomPrograms(long seed) {
+    public RandomPrograms(long seed) {
         this.random = new Random(seed);
     }
 
     /** A random, usually valid, program. */
-    String program() {
+    public String program() {
         out.clear();
         List<String> names = new ArrayList<>(NAME_POOL);
         Collections.shuffle(names, random);
@@ -48,7 +48,7 @@ final class RandomPrograms {
     }
 
     /** {@code source} with one to three random token-level edits. */
-    String mutate(String source) {
+    public String mutate(String source) {
         List<String> tokens = new ArrayList<>(List.of(source.trim().split("\\s+")));
         List<String> vocabulary = new ArrayList<>(Lexer.KEYWORDS);
         vocabulary.addAll(Condition.TEXTS);

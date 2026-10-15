@@ -40,6 +40,8 @@ class ObjectCodeTest {
         assertThrows(IllegalArgumentException.class, () -> ObjectCode.of(6));
         assertThrows(IllegalArgumentException.class, () -> ObjectCode.of(6, 2));
         assertThrows(IllegalArgumentException.class, () -> ObjectCode.of(7, -1, 5));
+        assertThrows(IllegalArgumentException.class, () -> ObjectCode.of(6, 1, 5)); // into operand
+        ObjectCode.of(7, 3, 0, 5);
         assertThrows(IllegalArgumentException.class, () -> ObjectCode.parseBo("3\n0\n5\n"));
         assertThrows(IllegalArgumentException.class, () -> ObjectCode.parseBo("2\n0\nx\n"));
     }

@@ -24,7 +24,11 @@ public final class ObjectCode {
     /**
      * Validates and wraps {@code code}: every slot must decode as an
      * instruction or as the operand of the jump before it, and every jump
-     * target must be an address in the program.
+     * must target the start of an instruction.
+     *
+     * <p>OURS: the jar only requires targets to be in range. Jumping into an
+     * operand would make the jar run the operand as an opcode (and crash if
+     * it is not one); the reference compiler never generates such code.
      *
      * @throws IllegalArgumentException describing the first problem found
      */
@@ -32,26 +36,32 @@ public final class ObjectCode {
         if (code.length == 0) {
             throw new IllegalArgumentException("Object code is empty");
         }
+        boolean[] isStart = new boolean[code.length];
         int pc = 0;
         while (pc < code.length) {
             if (!Opcode.isValid(code[pc])) {
                 throw new IllegalArgumentException(
                         "Unknown instruction code " + code[pc] + " at address " + pc);
             }
+            isStart[pc] = true;
             Opcode op = Opcode.fromCode(code[pc]);
-            if (op.hasOperand()) {
-                if (pc + 1 >= code.length) {
-                    throw new IllegalArgumentException(
-                            op + " at address " + pc + " is missing its target");
-                }
+            if (op.hasOperand() && pc + 1 >= code.length) {
+                throw new IllegalArgumentException(
+                        op + " at address " + pc + " is missing its target");
+            }
+            pc += op.hasOperand() ? 2 : 1;
+        }
+        for (pc = 0; pc < code.length; pc += Opcode.fromCode(code[pc]).hasOperand() ? 2 : 1) {
+            if (Opcode.fromCode(code[pc]).hasOperand()) {
                 int target = code[pc + 1];
                 if (target < 0 || target >= code.length) {
-                    throw new IllegalArgumentException(op + " at address " + pc
-                            + " jumps to " + target + ", outside 0.." + (code.length - 1));
+                    throw new IllegalArgumentException(Opcode.fromCode(code[pc]) + " at address "
+                            + pc + " jumps to " + target + ", outside 0.." + (code.length - 1));
                 }
-                pc += 2;
-            } else {
-                pc += 1;
+                if (!isStart[target]) {
+                    throw new IllegalArgumentException(Opcode.fromCode(code[pc]) + " at address "
+                            + pc + " jumps to " + target + ", the middle of an instruction");
+                }
             }
         }
         return new ObjectCode(code.clone());
