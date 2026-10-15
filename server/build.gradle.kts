@@ -7,6 +7,7 @@ dependencies {
     implementation(project(":engine"))
     implementation(libs.javalin)
     implementation(libs.jackson.databind)
+    implementation(libs.sqlite.jdbc)
     runtimeOnly(libs.slf4j.simple)
 
     testImplementation(platform(libs.junit.bom))
@@ -16,4 +17,9 @@ dependencies {
 
 application {
     mainClass = "edu.osu.bugsworld.server.Main"
+}
+
+tasks.named<JavaExec>("run") {
+    // Keep the database next to the project, not inside server/.
+    workingDir = rootProject.projectDir
 }

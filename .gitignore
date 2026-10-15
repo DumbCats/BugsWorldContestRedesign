@@ -171,3 +171,5 @@ CLAUDE.md
 
 # --- OSU course material (copyrighted, keep out of the repo) ---
 reference/
+# --- BugsWorld server data (SQLite submissions and results) ---
+/data/

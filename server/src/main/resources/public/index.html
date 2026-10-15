@@ -1,0 +1,80 @@
+<!doctype html>
+<!-- Temporary live viewer for testing the server; Phase 5 replaces it with the real web app. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugsWorld Live</title>
+<style>
+  body { margin: 0; font: 15px system-ui, sans-serif; background: #f6f6f4; color: #1d1d1b; }
+  main { display: flex; flex-wrap: wrap; gap: 24px; padding: 16px; align-items: flex-start; }
+  canvas { background: #fff; border: 2px solid #444; max-width: 100%; }
+  table { border-collapse: collapse; }
+  td, th { padding: 4px 10px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; }
+  #status { font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <canvas id="world" width="600" height="600"></canvas>
+  <section>
+    <h1>BugsWorld</h1>
+    <p><span id="status">connecting…</span> · tick <span id="tick">0</span></p>
+    <table id="species"><thead><tr><th>Species</th><th>Now</th><th>Min</th><th>Max</th></tr></thead><tbody></tbody></table>
+  </section>
+</main>
+<script>
+const COLORS = ["#2a6fdb", "#d1495b", "#2e9e5b", "#e8a33d", "#7b4fc9",
+                "#1aa3a3", "#c2569b", "#6b7b28", "#8a5a2b", "#55606e"];
+const canvas = document.getElementById("world");
+const g = canvas.getContext("2d");
+
+function draw(game) {
+  document.getElementById("status").textContent = game.status;
+  document.getElementById("tick").textContent = game.tick;
+  const cell = Math.floor(Math.min(600 / game.columns, 600 / game.rows));
+  canvas.width = cell * game.columns;
+  canvas.height = cell * game.rows;
+  g.strokeStyle = "#e3e3e0";
+  for (let r = 0; r <= game.rows; r++) { g.beginPath(); g.moveTo(0, r * cell); g.lineTo(canvas.width, r * cell); g.stroke(); }
+  for (let c = 0; c <= game.columns; c++) { g.beginPath(); g.moveTo(c * cell, 0); g.lineTo(c * cell, canvas.height); g.stroke(); }
+  const b = game.bugs;
+  for (let i = 0; i < b.length; i += 5) {
+    const species = b[i + 1], row = b[i + 2], col = b[i + 3], facing = b[i + 4];
+    g.save();
+    g.translate(col * cell + cell / 2, row * cell + cell / 2);
+    g.rotate(facing * Math.PI / 2);
+    g.fillStyle = COLORS[species % COLORS.length];
+    g.beginPath();
+    g.moveTo(0, -cell * 0.42);
+    g.lineTo(cell * 0.34, cell * 0.36);
+    g.lineTo(-cell * 0.34, cell * 0.36);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+  const rows = game.species.map(s =>
+    `<tr><td><span class="swatch" style="background:${COLORS[s.id % COLORS.length]}"></span>${escape(s.name)}</td>` +
+    `<td>${s.current}</td><td>${s.min}</td><td>${s.max}</td></tr>`);
+  document.querySelector("#species tbody").innerHTML = rows.join("");
+}
+
+function escape(text) {
+  return text.replace(/[&<>"']/g, ch => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[ch]));
+}
+
+function connect() {
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/game`);
+  ws.onmessage = e => draw(JSON.parse(e.data));
+  ws.onclose = () => {
+    document.getElementById("status").textContent = "disconnected, retrying…";
+    setTimeout(connect, 1000);
+  };
+}
+fetch("/api/game").then(r => r.json()).then(draw);
+connect();
+</script>
+</body>
+</html>

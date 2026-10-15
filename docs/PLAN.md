@@ -21,7 +21,8 @@ engine/   pure Java, no runtime dependencies
   compiler: Lexer -> Parser (AST + spans) -> Checker -> CodeGen -> ObjectCode
   vm:       BugProgram (precomputed "can still act") + Vm.step -> Action
   sim:      Game (placement, ticks, stats), Snapshot, Event, AsciiRenderer; Simulate CLI
-server/   Javalin: REST (compile, submissions, games) + WebSocket (live world)
+server/   Javalin: Server (routes), GameRunner (game thread), LiveViewers (WebSocket),
+          Database (SQLite); static page in resources/public
 web/      Vite app: student editor, professor dashboard, projector display
 tools/oracle/   scripts that run the OSU jars as a test oracle
 samples/  example bugs (also used by the tests)
@@ -104,13 +105,29 @@ Code is in `engine/.../sim/`, plus `Simulate` for the terminal.
   - `GameTest`: exact scenarios for walls, moving, infection, same-tick infection, halted and stuck bugs, stats and endings;
   - **`EngineReferenceTest`**: plays the same matchups many times in our engine and in the jar's real `Game` (driven tick by tick), and checks that the average final counts agree. This run uses 300 games; I also checked once at 3,000 and 12,000 games, with every difference within about 1 standard error.
 
-### Phase 4: Server
-- [ ] `POST /api/compile` returns errors and warnings, object code and pretty-printed source.
-- [ ] Submissions: create, list, fetch.
-- [ ] Games: create, add species, open/close/start/pause/step/end/reset.
-- [ ] `WS /ws/games/{id}` sends a full snapshot when a viewer connects, then a compact frame each tick.
-- [ ] Storage: SQLite (xerial `sqlite-jdbc`) for submissions and game results.
-- [ ] Auth: an instructor token from an environment variable, plus a class code and display name for students. OSU single sign-on can plug in later.
+### Phase 4: Server ✅
+Code is in `server/`. `Server.java` lists every endpoint.
+
+- [x] `POST /api/compile` returns the errors and warnings (line, column, offset, hint), the object code and the formatted source.
+- [x] Submissions:
+  - `POST /api/submissions` takes `{student, source}` and stores the program only if it compiles; otherwise it returns 422 with the diagnostics.
+  - The instructor can list, view and delete them.
+  - Only the source is stored, and it's recompiled when added to a game.
+- [x] One current game, as in the jar: new (any settings and seed), add or remove species from submissions, start, pause, step, end, reset (replays from the same seed), and speed (1–100 ticks per second).
+  - The jar's open/close step for joining is replaced by the professor adding submissions to the game.
+- [x] `GameRunner` runs the game on its own thread, and every command is queued to it.
+  - An error during a tick stops the game cleanly with a log message. The jar froze silently.
+- [x] `WS /ws/game` sends the full `GameView` (bugs flattened to five numbers each) when a viewer connects, then on every change.
+  - At most 20 frames per second, however fast the game ticks.
+  - A viewer still receiving the previous frame skips to the next one, so a slow laptop can't hold anyone up.
+- [x] SQLite (`data/bugsworld.db`, gitignored) stores submissions and finished-game results, so they survive restarts.
+- [x] Access:
+  - `/api/admin/*` needs `Authorization: Bearer <BUGSWORLD_INSTRUCTOR_TOKEN>`. If the variable isn't set, a token is generated and printed at startup.
+  - If `BUGSWORLD_CLASS_CODE` is set, submitting needs the `X-Class-Code` header.
+  - OSU single sign-on can plug in later.
+- [x] At startup the server prints the URLs students can use: one per network address.
+- [x] A temporary live viewer at `/` (canvas + species table) for testing until Phase 5.
+- [x] Tests: 13 end-to-end tests run a real server on a random port and use HTTP and WebSocket. They cover auth, class code, validation, the lifecycle, reset replays, restart persistence, results and live frames.
 
 ### Phase 5: Web frontend
 - [ ] Student page: BL editor with syntax highlighting and inline errors, compile, download `.bo`, and a solo test run against built-in sample bugs.
