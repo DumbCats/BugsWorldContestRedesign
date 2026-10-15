@@ -1,0 +1,6 @@
+PROGRAM Loop IS
+BEGIN
+  WHILE true DO
+    skip
+  END WHILE
+END Loop

@@ -1,0 +1,13 @@
+PROGRAM Conds IS
+BEGIN
+  IF next-is-empty THEN skip END IF
+  IF next-is-not-empty THEN skip END IF
+  IF next-is-wall THEN skip END IF
+  IF next-is-not-wall THEN skip END IF
+  IF next-is-friend THEN skip END IF
+  IF next-is-not-friend THEN skip END IF
+  IF next-is-enemy THEN skip END IF
+  IF next-is-not-enemy THEN skip END IF
+  IF random THEN skip END IF
+  IF true THEN skip END IF
+END Conds

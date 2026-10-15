@@ -1,0 +1,8 @@
+PROGRAM IfElse IS
+BEGIN
+  IF next-is-enemy THEN
+    infect
+  ELSE
+    turnleft
+  END IF
+END IfElse

@@ -1,0 +1,10 @@
+PROGRAM P IS
+  INSTRUCTION a IS
+    move
+  END a
+  INSTRUCTION a IS
+    skip
+  END a
+BEGIN
+  a
+END P

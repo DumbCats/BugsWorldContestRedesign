@@ -1,0 +1,33 @@
+PROGRAM Hunter IS
+
+  INSTRUCTION find-obstacle IS
+    WHILE next-is-empty DO
+      move
+    END WHILE
+  END find-obstacle
+
+  INSTRUCTION wander IS
+    IF random THEN
+      turnleft
+    ELSE
+      turnright
+    END IF
+  END wander
+
+BEGIN
+  WHILE true DO
+    find-obstacle
+    IF next-is-enemy THEN
+      infect
+    ELSE
+      IF next-is-wall THEN
+        wander
+      ELSE
+        IF next-is-friend THEN
+          wander
+          move
+        END IF
+      END IF
+    END IF
+  END WHILE
+END Hunter

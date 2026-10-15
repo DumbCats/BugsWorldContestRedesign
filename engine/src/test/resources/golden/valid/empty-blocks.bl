@@ -1,0 +1,8 @@
+PROGRAM EmptyBlocks IS
+BEGIN
+  IF random THEN
+  ELSE
+  END IF
+  WHILE next-is-wall DO
+  END WHILE
+END EmptyBlocks

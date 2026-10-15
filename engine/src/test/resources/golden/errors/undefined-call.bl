@@ -1,0 +1,4 @@
+PROGRAM P IS
+BEGIN
+  dance
+END P

@@ -1,0 +1,11 @@
+PROGRAM Forward IS
+  INSTRUCTION a IS
+    b
+    skip
+  END a
+  INSTRUCTION b IS
+    move
+  END b
+BEGIN
+  a
+END Forward

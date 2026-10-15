@@ -1,0 +1,4 @@
+PROGRAM P IS
+BEGIN
+  move # not a comment in BL
+END P

@@ -1,0 +1,20 @@
+PROGRAM Nested IS
+  INSTRUCTION step IS
+    IF next-is-empty THEN
+      move
+    ELSE
+      turn-around
+    END IF
+  END step
+  INSTRUCTION turn-around IS
+    turnleft
+    turnleft
+  END turn-around
+BEGIN
+  WHILE true DO
+    step
+    WHILE next-is-friend DO
+      turnright
+    END WHILE
+  END WHILE
+END Nested

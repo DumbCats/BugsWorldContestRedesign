@@ -1,0 +1,8 @@
+PROGRAM Primitives IS
+BEGIN
+  move
+  turnleft
+  turnright
+  infect
+  skip
+END Primitives

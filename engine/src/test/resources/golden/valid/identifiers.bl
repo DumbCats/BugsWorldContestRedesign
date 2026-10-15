@@ -1,0 +1,11 @@
+PROGRAM a1-B2-c3 IS
+  INSTRUCTION x- IS
+    skip
+  END x-
+  INSTRUCTION Move IS
+    move
+  END Move
+BEGIN
+  x-
+  Move
+END a1-B2-c3

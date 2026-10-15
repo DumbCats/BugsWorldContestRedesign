@@ -1,0 +1,5 @@
+PROGRAM P IS
+BEGIN
+  WHILE true DO
+    move
+END P

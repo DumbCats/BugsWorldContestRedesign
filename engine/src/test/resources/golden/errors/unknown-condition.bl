@@ -1,0 +1,6 @@
+PROGRAM P IS
+BEGIN
+  IF next-is-food THEN
+    move
+  END IF
+END P

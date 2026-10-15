@@ -1,0 +1,6 @@
+PROGRAM IfOnly IS
+BEGIN
+  IF next-is-empty THEN
+    move
+  END IF
+END IfOnly

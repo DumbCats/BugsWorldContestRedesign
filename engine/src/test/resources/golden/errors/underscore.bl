@@ -1,0 +1,7 @@
+PROGRAM P IS
+  INSTRUCTION go_now IS
+    move
+  END go_now
+BEGIN
+  go_now
+END P

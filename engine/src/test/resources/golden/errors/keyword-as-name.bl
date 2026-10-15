@@ -1,0 +1,7 @@
+PROGRAM P IS
+  INSTRUCTION WHILE IS
+    move
+  END WHILE
+BEGIN
+  move
+END P

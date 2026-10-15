@@ -1,0 +1,13 @@
+PROGRAM Calls IS
+  INSTRUCTION two IS
+    move
+    turnright
+  END two
+  INSTRUCTION unused IS
+    skip
+  END unused
+BEGIN
+  two
+  infect
+  two
+END Calls

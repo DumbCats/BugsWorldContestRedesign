@@ -1,0 +1,6 @@
+PROGRAM P IS
+BEGIN
+  IF true
+    move
+  END IF
+END P

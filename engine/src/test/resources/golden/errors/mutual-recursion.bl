@@ -1,0 +1,10 @@
+PROGRAM P IS
+  INSTRUCTION a IS
+    b
+  END a
+  INSTRUCTION b IS
+    a
+  END b
+BEGIN
+  a
+END P
