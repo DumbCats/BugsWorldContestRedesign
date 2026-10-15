@@ -1,0 +1,27 @@
+PROGRAM Wanderer IS
+
+    INSTRUCTION turn-randomly IS
+        IF random THEN
+            turnleft
+        ELSE
+            turnright
+        END IF
+    END turn-randomly
+
+BEGIN
+    WHILE true DO
+        IF next-is-enemy THEN
+            infect
+        ELSE
+            IF next-is-empty THEN
+                IF random THEN
+                    move
+                ELSE
+                    turn-randomly
+                END IF
+            ELSE
+                turn-randomly
+            END IF
+        END IF
+    END WHILE
+END Wanderer

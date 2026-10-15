@@ -70,6 +70,7 @@ Bugs are never created or destroyed. Infection only moves bugs between species. 
 - Opcodes are as in `Opcode.java` (codes 0–16).
 - A conditional jump jumps to its operand when the condition is **false** and otherwise moves PC forward by 2. `JUMP` always jumps. `random` is a 50% coin flip from an unseeded `java.util.Random` per bug.
 - The VM runs jumps until it reaches a primitive (codes 0–5), returns that primitive, and moves PC forward by 1.
+- These semantics are checked against the jar's `Bug` class by `VmReferenceTest`. The whole engine (placement, turn order, sensing, moving, infection) is checked against the jar's `Game` statistically by `EngineReferenceTest`.
 
 ## 7. Object code and the `.bo` format (CONFIRMED)
 
@@ -126,8 +127,10 @@ See `engine/src/test/resources/golden/errors/*.err` for the exact messages. Our 
 | A jump cycle with no primitive (e.g. `WHILE true DO END WHILE`) spins forever on the tick thread, and **the game freezes**. This also catches a common pattern: `WHILE true DO IF next-is-enemy THEN infect END IF END WHILE` freezes the game as soon as such a bug faces anything but an enemy. | CONFIRMED (both examples) | Per-turn jump budget. When it runs out, the bug does nothing for that turn (configurable). The compiler warns about any loop that can repeat without acting (`silent-loop`) and any program that can reach its end (`program-can-halt`). |
 | A leading byte-order mark (some Windows editors add one) makes the reference reject the file. | CONFIRMED | Ignored. |
 | No limit on object-code size. | READ | Compile error above 1,000,000 numbers. |
+| A `.bo` jump may target any address, even inside another instruction, which then runs as an opcode (or crashes). | READ | Uploaded `.bo` files may only jump to the start of an instruction. The reference compiler never generates anything else. |
 | More bugs than free cells crashes while placing bugs, leaving a partially placed player. | READ | Check the settings when the game is created and when each player is added, and show an error. |
 | An 11th player crashes on accept. | READ | Limit games to 10 species, with a clear message. |
+| The stats panel's minimum ignores counts of 0, so an extinct species still shows its last positive count. | READ | The minimum includes 0. |
 | Everything is unseeded (shuffle, placement, facing, `random`). | READ | One seeded random number generator per game. The same seed, settings and programs replay the same game. |
 | The game clock busy-loops, using a full CPU core while running. | READ | Count ticks and keep wall-clock time separately. |
 | Two threads read and change the bug list with no locking, so the display may see half-finished ticks. | READ | The engine produces an immutable snapshot after each tick, and the display reads only snapshots. |

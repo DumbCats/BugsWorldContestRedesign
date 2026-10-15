@@ -1,0 +1,19 @@
+PROGRAM Hunter IS
+
+BEGIN
+    WHILE true DO
+        IF next-is-enemy THEN
+            infect
+        ELSE
+            IF next-is-empty THEN
+                move
+            ELSE
+                IF random THEN
+                    turnleft
+                ELSE
+                    turnright
+                END IF
+            END IF
+        END IF
+    END WHILE
+END Hunter

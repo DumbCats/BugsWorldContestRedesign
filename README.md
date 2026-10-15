@@ -8,6 +8,9 @@ A web app that replaces the Swing/coLinux BugsWorld lab: students submit BL prog
 ```sh
 ./gradlew build          # compile + test (uses a JDK 21 toolchain)
 ./gradlew :server:run    # http://localhost:7070/api/health
+
+# watch sample bugs fight in the terminal
+./gradlew -q :engine:simulate --args="samples/hunter.bl samples/wanderer.bl --show 100"
 ```
 
 - [docs/PLAN.md](docs/PLAN.md): architecture, decisions and roadmap

@@ -19,11 +19,12 @@ The rules we're matching are in [reference-behavior.md](reference-behavior.md). 
 ```
 engine/   pure Java, no runtime dependencies
   compiler: Lexer -> Parser (AST + spans) -> Checker -> CodeGen -> ObjectCode
-  vm:       run to the next primitive, with a jump budget
-  sim:      World, Bug, Species, Game (lifecycle), tick loop, Snapshot, events
+  vm:       BugProgram (precomputed "can still act") + Vm.step -> Action
+  sim:      Game (placement, ticks, stats), Snapshot, Event, AsciiRenderer; Simulate CLI
 server/   Javalin: REST (compile, submissions, games) + WebSocket (live world)
 web/      Vite app: student editor, professor dashboard, projector display
 tools/oracle/   scripts that run the OSU jars as a test oracle
+samples/  example bugs (also used by the tests)
 ```
 
 ## The tick model
@@ -68,18 +69,40 @@ Code is in `engine/.../compiler/` and the entry point is `Compiler.compile(sourc
   - formatting doesn't change the generated code;
   - **`ReferenceOracleTest` compares against the jar's compiler on random and mutated programs.** 3,000 cases run in every build, and 300,000 passed (seeds 1–3). Rerun at that size with `-Dbugsworld.fuzzCases=100000 -Dbugsworld.fuzzSeed=N`.
 
-### Phase 2: VM
-- [ ] `Vm.nextPrimitive(code, pc, sees, rng, budget)` returns the primitive and the new PC. Halted bugs stay halted.
-- [ ] Jump budget (default: program length × 2). When it runs out, the bug skips its turn, and the engine records an event the dashboard can show.
-- [ ] Tests for every opcode, for jumping when the condition is false versus falling through, for the HALT and budget cases, and for seeded `random`.
+### Phase 2: VM ✅
+Code is in `engine/.../vm/`.
 
-### Phase 3: Simulation engine
-- [ ] `GameConfig`: rows and columns (1–100), bugs per species (1–300), up to 10 species, seed, ticks per second, jump budget, same-tick infection on/off. Optional extras, all off by default: a tick limit and stop when only one species is left.
-- [ ] Lifecycle: create → open (add species) → close → run ⇄ pause → end, plus step-one-tick and reset-with-same-seed.
-- [ ] Placement and the tick loop as above. Settings that don't fit the grid fail with a clear error.
-- [ ] Immutable `Snapshot` (tick, bugs, per-species min/current/max) and an event stream (move, turn, infect, budget exhausted).
-- [ ] Headless batch runner and ASCII view, for tests and for tournament batches.
-- [ ] Check against the jar: run both engines many times on the same matchups with `run-reference-game.sh` and compare the distribution of final counts.
+- [x] `Vm.step(program, pc, sees, rng)` returns the action, the next PC and the number of jumps.
+- [x] A halted bug stays halted, and so does a program that runs off its end.
+- [x] `BugProgram` precomputes, for each of the four things a bug can see, which addresses can still reach an action. A bug in a loop that can never act is reported `STUCK` immediately and loses its turn, instead of freezing the game.
+- [x] A jump budget (10,000) is the backstop for loops that only `random` can exit. When it runs out, the result is `OUT_OF_JUMPS` and the bug resumes from there next turn.
+- [x] `random` draws exactly one boolean from the game's generator, so seeded runs replay exactly.
+- [x] Uploaded `.bo` files may only jump to the start of an instruction.
+- [x] Tests:
+  - every opcode and condition against every view;
+  - HALT, STUCK and budget cases;
+  - **`VmReferenceTest`**: the same action sequence as the jar's own `Bug` class for 5,000 random programs (about 16,000 actions compared).
+
+### Phase 3: Simulation engine ✅
+Code is in `engine/.../sim/`, plus `Simulate` for the terminal.
+
+- [x] `GameConfig`: the jar's defaults and ranges, plus seed and jump budget. Three switches, defaulting to the jar's behavior: infected bugs act in the same tick, a tick limit, and end when only one species is left.
+- [x] `Game`:
+  - species can be added and removed during setup (at most 10; a full grid gives a clear error);
+  - `step()` runs one tick, and `end()` ends the game;
+  - placement and the tick loop follow the queue model above;
+  - pause, and opening or closing submissions, belong to the server, which owns the game thread.
+- [x] Replays: the same seed, settings and order of adding species replay the same game, so "reset" just builds a new `Game` the same way.
+- [x] Immutable `Snapshot`:
+  - the tick and phase;
+  - every bug's position, facing and PC;
+  - per species, the current, minimum and maximum counts and how many bugs were stuck, out of jumps or halted;
+  - the events of the last tick (moved, turned, infected).
+- [x] `AsciiRenderer` and `./gradlew -q :engine:simulate --args="samples/hunter.bl samples/wanderer.bl [--show N] [--runs N]"` for single games or batches.
+- [x] Sample bugs in `samples/` (hunter, wanderer, turret, flocker). They compile with no warnings and are in the standard format.
+- [x] Tests:
+  - `GameTest`: exact scenarios for walls, moving, infection, same-tick infection, halted and stuck bugs, stats and endings;
+  - **`EngineReferenceTest`**: plays the same matchups many times in our engine and in the jar's real `Game` (driven tick by tick), and checks that the average final counts agree. This run uses 300 games; I also checked once at 3,000 and 12,000 games, with every difference within about 1 standard error.
 
 ### Phase 4: Server
 - [ ] `POST /api/compile` returns errors and warnings, object code and pretty-printed source.

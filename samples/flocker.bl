@@ -1,0 +1,31 @@
+PROGRAM Flocker IS
+
+    INSTRUCTION avoid-friend IS
+        IF random THEN
+            turnright
+        ELSE
+            turnleft
+        END IF
+    END avoid-friend
+
+BEGIN
+    WHILE true DO
+        IF next-is-enemy THEN
+            infect
+        ELSE
+            IF next-is-friend THEN
+                avoid-friend
+            ELSE
+                IF next-is-wall THEN
+                    turnright
+                ELSE
+                    IF random THEN
+                        move
+                    ELSE
+                        skip
+                    END IF
+                END IF
+            END IF
+        END IF
+    END WHILE
+END Flocker
