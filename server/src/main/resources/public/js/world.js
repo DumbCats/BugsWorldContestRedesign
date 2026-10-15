@@ -18,11 +18,9 @@ function cssVar(name) {
 
 /**
  * Draws a world sized to fit maxWidth x maxHeight CSS pixels.
- *
- * bugs is flat: `stride` numbers per bug, with species, row, column, facing
- * starting at `offset` (live frames: stride 5, offset 1; practice: 4, 0).
+ * bugs is the server's flat list: id, species, row, column, facing per bug.
  */
-export function drawWorld(canvas, { rows, columns, bugs, stride = 5, offset = 1 }, maxWidth, maxHeight) {
+export function drawWorld(canvas, { rows, columns, bugs }, maxWidth, maxHeight) {
   const cell = Math.max(2, Math.floor(Math.min(maxWidth / columns, maxHeight / rows)));
   const width = cell * columns;
   const height = cell * rows;
@@ -47,11 +45,11 @@ export function drawWorld(canvas, { rows, columns, bugs, stride = 5, offset = 1 
     g.stroke();
   }
 
-  for (let i = 0; i < bugs.length; i += stride) {
-    const species = bugs[i + offset];
-    const row = bugs[i + offset + 1];
-    const column = bugs[i + offset + 2];
-    const facing = bugs[i + offset + 3];
+  for (let i = 0; i < bugs.length; i += 5) {
+    const species = bugs[i + 1];
+    const row = bugs[i + 2];
+    const column = bugs[i + 3];
+    const facing = bugs[i + 4];
     drawBug(g, column * cell + cell / 2, row * cell + cell / 2, cell, facing, speciesColor(species));
   }
   return cell;
@@ -99,10 +97,10 @@ function drawBug(g, x, y, cell, facing, color) {
 }
 
 /**
- * Fills a <ul class="legend"> with one row per species:
+ * Fills a <ul class="legend"> with one row per program (species):
  * name, current count, a bar of its share, and min/max (and trouble) details.
  */
-export function renderLegend(list, species, { details = true } = {}) {
+export function renderLegend(list, species) {
   const total = species.reduce((sum, s) => sum + s.current, 0) || 1;
   const ranked = [...species].sort((a, b) => b.current - a.current || a.id - b.id);
   list.replaceChildren(...ranked.map(s => {
@@ -121,7 +119,7 @@ export function renderLegend(list, species, { details = true } = {}) {
       el("span", { className: "name", title: s.name }, s.name),
       el("span", { className: "count" }, String(s.current)),
       el("span", { className: "bar" }, bar),
-      details ? el("span", { className: "detail" },
-        `min ${s.min} · max ${s.max}${trouble.length ? " · " + trouble.join(", ") : ""}`) : null);
+      el("span", { className: "detail" },
+        `min ${s.min} · max ${s.max}${trouble.length ? " · " + trouble.join(", ") : ""}`));
   }));
 }

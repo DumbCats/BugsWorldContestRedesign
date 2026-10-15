@@ -46,14 +46,14 @@
         <label class="check small"><input id="latest-only" type="checkbox" checked> Newest per student</label>
       </div>
       <input id="search" type="text" placeholder="Search names or programs" aria-label="Search submissions">
-      <button id="add-all" class="primary" style="width:100%;margin-top:10px">Add everyone's newest bug to the game</button>
+      <button id="add-all" class="primary" style="width:100%;margin-top:10px">Load everyone's newest program</button>
       <ul id="submissions" class="sub-list"></ul>
       <p id="no-subs" class="muted">No submissions yet. Students submit from the address at the top.</p>
     </section>
 
     <section class="card game-card" aria-labelledby="game-title">
       <div class="card-head">
-        <h2 id="game-title">Class game</h2>
+        <h2 id="game-title">Simulation</h2>
         <span id="game-status" class="pill">…</span>
         <span id="game-tick" class="muted small"></span>
         <span class="spacer"></span>
@@ -62,7 +62,7 @@
       <div class="controls">
         <button id="run" class="primary big">▶ Start</button>
         <button id="step" class="big" title="One tick (→)">Step</button>
-        <button id="reset" class="big" title="Replay this game from the start with the same seed">Replay</button>
+        <button id="reset" class="big" title="Run this simulation again from the start with the same seed">Rerun</button>
         <button id="end" class="big danger">End</button>
         <label class="speed">
           <span>Speed <strong id="speed-label">10</strong> ticks/s</span>
@@ -75,13 +75,13 @@
 
     <div class="stack">
       <section class="card" aria-labelledby="players-title">
-        <h2 id="players-title">In this game</h2>
+        <h2 id="players-title">Loaded programs</h2>
         <ul id="legend" class="legend"></ul>
-        <p id="no-players" class="muted">Add submissions from the list.</p>
+        <p id="no-players" class="muted">Load submissions from the list.</p>
       </section>
 
       <details id="new-game" class="card">
-        <summary><strong>New game settings</strong></summary>
+        <summary><strong>New simulation settings</strong></summary>
         <form id="settings" class="stack" style="gap:12px;margin-top:12px">
           <div class="fields">
             <div class="field"><label for="rows">Rows</label><input id="rows" type="number" min="1" max="100" value="15"></div>
@@ -92,13 +92,13 @@
           </div>
           <label class="check"><input id="one-left" type="checkbox"> Stop when only one species is left</label>
           <label class="check"><input id="same-tick" type="checkbox" checked> Infected bugs act in the same tick (original rules)</label>
-          <button class="primary" type="submit">Start a new game with these settings</button>
-          <p class="muted small" style="margin:0">The current species are kept. Same seed + same species = the same game.</p>
+          <button class="primary" type="submit">Set up a new simulation</button>
+          <p class="muted small" style="margin:0">The loaded programs are kept. Same seed + same programs = the same run.</p>
         </form>
       </details>
 
       <details id="results-box" class="card">
-        <summary><strong>Past games</strong></summary>
+        <summary><strong>Past runs</strong></summary>
         <ol id="results" class="results"></ol>
       </details>
     </div>
@@ -111,9 +111,10 @@
     <span class="spacer"></span>
     <button id="source-close" class="small">Close</button>
   </div>
-  <pre id="source-code"></pre>
+  <div id="source-code"></div>
+  <ul id="source-warnings" class="problems" style="margin-bottom:12px"></ul>
   <div class="row">
-    <button id="source-add" class="primary">Add to game</button>
+    <button id="source-add" class="primary">Load into simulation</button>
     <span class="spacer"></span>
     <button id="source-delete" class="danger">Delete submission</button>
   </div>

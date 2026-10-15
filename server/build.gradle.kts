@@ -25,20 +25,6 @@ tasks.named<JavaExec>("run") {
     workingDir = rootProject.projectDir
 }
 
-// Bundle the example bugs from samples/ (plus an index, since a jar can't be
-// listed) so the web pages can offer them and practice runs can use them.
-val sampleResources = layout.buildDirectory.dir("generated/sample-resources")
-val bundleSamples by tasks.registering(Sync::class) {
-    from(rootProject.file("samples")) { include("*.bl") }
-    into(sampleResources.map { it.dir("samples") })
-    doLast {
-        val names = destinationDir.list()!!.filter { it.endsWith(".bl") }.sorted()
-        destinationDir.resolve("index.txt").writeText(names.joinToString("\n") + "\n")
-    }
-}
-sourceSets.main { resources.srcDir(sampleResources) }
-tasks.processResources { dependsOn(bundleSamples) }
-
 // Name the distribution "bugsworld": ./gradlew :server:distZip produces
 // server/build/distributions/bugsworld.zip with bin/bugsworld(.bat).
 application { applicationName = "bugsworld" }

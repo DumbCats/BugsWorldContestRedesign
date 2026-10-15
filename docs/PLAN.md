@@ -23,7 +23,7 @@ engine/   pure Java, no runtime dependencies
   sim:      Game (placement, ticks, stats), Snapshot, Event, AsciiRenderer; Simulate CLI
 server/   Javalin: Server (routes), GameRunner (game thread), LiveViewers (WebSocket),
           Database (SQLite); static page in resources/public
-server/src/main/resources/public/   web pages: / (students), /watch (projector), /admin (professor)
+server/src/main/resources/public/   web pages: / (students upload .bl files), /watch (projector), /admin (professor)
 tools/oracle/   scripts that run the OSU jars as a test oracle
 samples/  example bugs (also used by the tests)
 ```
@@ -130,36 +130,38 @@ Code is in `server/`. `Server.java` lists every endpoint.
 - [x] Tests: 13 end-to-end tests run a real server on a random port and use HTTP and WebSocket. They cover auth, class code, validation, the lifecycle, reset replays, restart persistence, results and live frames.
 
 ### Phase 5: Web pages ✅
-Pages are in `server/src/main/resources/public/`. Shared modules: `api.js`, `world.js` (canvas), `bl.js` (highlighter), `editor.js`.
+Pages are in `server/src/main/resources/public/`. Shared modules: `api.js`, `world.js` (canvas), `bl.js` (highlighter), `codeview.js` (read-only code with marks).
+
+The purpose is to check students' code-writing ability. Students write programs on their own and bring them to class, so there is **no editor and no practice game**, and the app is a simulator rather than a game.
 
 - [x] **Students (`/`):**
-  - an editor with BL syntax colors, line numbers, Tab and auto-indent;
-  - errors and warnings **underlined as you type** and listed with hints; clicking one jumps to it;
-  - a starter bug, example bugs, open and save `.bl` files, and "Tidy up" (format);
-  - the draft autosaves in the browser;
-  - a **practice game** against an example bug, animated with play, scrub and speed controls, which explains stuck or halted bugs;
-  - one-click submit (name remembered, class code if required);
-  - a cheat sheet.
+  - name, then choose or drag in the `.bl` file;
+  - it's compiled at once, and the student sees their code read-only with errors and warnings underlined and marked in the margin;
+  - each problem shows a hint, and clicking it highlights its line;
+  - **Submit** is enabled only when the program compiles.
 - [x] **Projector (`/watch`):**
-  - a dark theme and a world as large as the screen allows;
-  - a large legend with counts, share bars and min/max;
-  - before the start, it shows the address to submit at; at the end, it shows the winner;
+  - dark theme, a world as large as the screen allows, and a large legend with counts, share bars and min/max;
+  - before the start it shows the address to submit at; when finished, every program's final count;
   - <kbd>F</kbd> toggles full screen, and it reconnects automatically.
 - [x] **Professor (`/admin`):**
-  - the server opens it signed in (`#token=` in the link, which is removed from the address bar);
+  - the server opens it signed in;
   - the student address with a Copy button;
-  - submissions grouped as newest per student, with search, View (with highlighting), Add and Delete;
-  - **Add everyone's newest bug** in one click;
-  - Start/Pause, Step, Replay and End, with <kbd>Space</kbd> and <kbd>→</kbd> shortcuts;
-  - a live speed slider, the live world, and the legend with Remove;
-  - a "next step" hint for every state;
-  - new-game settings that keep the current species;
-  - past games with standings.
-- [x] Server support: `/api/info`, `/api/samples` (the `samples/` bugs bundled at build time), `/api/practice` (300 ticks, 12×12, run in one go and returned as frames), and `/api/admin/info`.
+  - submissions as newest per student, with search and a **⚠ warning count** for each;
+  - View shows the code with its warnings explained; Load and Delete;
+  - **Load everyone's newest program** in one click;
+  - Start/Pause, Step, Rerun and End, with <kbd>Space</kbd> and <kbd>→</kbd> shortcuts;
+  - live speed, the live world, the loaded programs with Remove, and a "next step" hint;
+  - new-simulation settings that keep the loaded programs;
+  - past runs with final counts.
+- [x] Server support:
+  - `/api/info`;
+  - `/api/compile` checks uploads;
+  - `/api/admin/info`;
+  - submissions report their compiler warnings (cached).
 - [x] Tests:
-  - server tests for the pages, samples and practice;
+  - server tests for the pages and warnings;
   - `server/src/test/js` highlighter tests, run by `./gradlew check` when Node is installed;
-  - **`tools/ui-check/ui-check.mjs`** drives all three pages in headless Chrome. It types errors, clicks problems, loads examples, runs practice, submits, signs in by link, adds everyone, starts and pauses, ends, and checks the winner and results. It fails on any JavaScript error and saves screenshots.
+  - **`tools/ui-check/ui-check.mjs`** drives all three pages in headless Chrome. It uploads a broken file, a correct one and one with warnings, then submits, signs in by link, checks the warning badge and View, loads everyone, starts and pauses, finishes, and checks the final counts and past runs. It fails on any JavaScript error and saves screenshots.
 
 ### Phase 6: Deploy (partly done)
 - [x] `./gradlew :server:distZip` builds `bugsworld.zip` with `bin/bugsworld` and `bugsworld.bat`, and needs only Java 21+.

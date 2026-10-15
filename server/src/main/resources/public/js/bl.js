@@ -68,8 +68,7 @@ export function highlight(source, diagnostics = []) {
     const cls = `tok-${part.kind}${mark ? " " + mark : ""}`;
     html += `<span class="${cls}">${escape(part.text)}</span>`;
   }
-  // A trailing newline needs a character after it to take up a line.
-  return html + "\n ";
+  return html;
 }
 
 /** Line numbers (1-based) of diagnostics, with the worst severity per line. */

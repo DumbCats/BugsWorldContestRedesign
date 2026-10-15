@@ -1,7 +1,7 @@
-// Professor dashboard: submissions, the class game's controls, settings, results.
+// Professor dashboard: submissions, the simulation's controls, settings, results.
 
 import { api, ApiError, el, followLiveGame, store, timeAgo, toast } from "./api.js";
-import { highlight } from "./bl.js";
+import { renderCode } from "./codeview.js";
 import { drawWorld, renderLegend, speciesColor } from "./world.js";
 
 const $ = id => document.getElementById(id);
@@ -141,14 +141,19 @@ function renderSubmissions() {
     return el("li", {},
       el("div", { className: "who" },
         el("strong", { title: s.student }, s.student),
-        el("span", { className: "muted small", title: s.programName }, `${s.programName} · ${timeAgo(s.createdAt)}`)),
+        el("span", { className: "muted small", title: s.programName },
+          s.warnings ? el("span", {
+            className: "badge warn",
+            title: `${s.warnings} compiler warning${s.warnings === 1 ? "" : "s"}: open View for details`,
+          }, `⚠ ${s.warnings}`) : null,
+          `${s.programName} · ${timeAgo(s.createdAt)}`)),
       el("button", { className: "small", onclick: () => viewSource(s) }, "View"),
       el("button", {
         className: "small primary",
         disabled: !canAdd || added,
-        title: added ? "Already in the game" : canAdd ? "Add to the game" : "Start a new game to add species",
+        title: added ? "Already loaded" : canAdd ? "Load into the simulation" : "Set up a new simulation to load programs",
         onclick: () => addSpecies(s.id),
-      }, added ? "Added" : "Add"));
+      }, added ? "Loaded" : "Load"));
   }));
 }
 
@@ -169,7 +174,7 @@ async function addSpecies(submissionId) {
 $("add-all").onclick = async () => {
   const pending = newestPerStudent(submissions).filter(s => !inGame(s.id));
   if (!pending.length) {
-    toast("Everyone's newest bug is already in the game");
+    toast("Everyone's newest program is already loaded");
     return;
   }
   $("add-all").disabled = true;
@@ -178,7 +183,7 @@ $("add-all").onclick = async () => {
     if (!(await addSpecies(s.id))) break;
     added++;
   }
-  toast(`Added ${added} bug${added === 1 ? "" : "s"}`);
+  toast(`Loaded ${added} program${added === 1 ? "" : "s"}`);
   renderSubmissions();
 };
 
@@ -193,7 +198,10 @@ async function viewSource(summary) {
     return;
   }
   $("source-title").textContent = `${shown.student} · ${shown.programName}`;
-  $("source-code").innerHTML = highlight(shown.source);
+  renderCode($("source-code"), shown.source, shown.warnings);
+  $("source-warnings").replaceChildren(...shown.warnings.map(w => el("li", { className: "warn" },
+    el("button", { type: "button" }, el("span", { className: "where" }, `Line ${w.line}:`), w.message,
+      w.hint ? el("span", { className: "hint" }, w.hint) : null))));
   $("source-add").disabled = !(game && game.status === "setup") || inGame(shown.id);
   dialog.showModal();
 }
@@ -215,7 +223,7 @@ $("source-delete").onclick = async () => {
 
 // ------------------------------------------------------------------- game
 
-const STATUS = { setup: "Setting up", running: "Running", paused: "Paused", ended: "Ended" };
+const STATUS = { setup: "Ready", running: "Running", paused: "Paused", ended: "Finished" };
 
 function setStatus(kind, text) {
   $("game-status").className = `pill ${kind}`;
@@ -261,14 +269,14 @@ function nextStep(status, hasSpecies) {
   switch (status) {
     case "setup":
       return hasSpecies
-        ? "Press <b>Start</b> (or <kbd>Space</kbd>) when everyone is ready. Show the class the projector view."
-        : "Add submissions from the list on the left, then press <b>Start</b>.";
+        ? "Press <b>Start</b> (or <kbd>Space</kbd>) to run the loaded programs. Show the class the projector view."
+        : "Load submissions from the list on the left, then press <b>Start</b>.";
     case "running":
-      return "<kbd>Space</kbd> pauses. The speed slider works while the game runs.";
+      return "<kbd>Space</kbd> pauses. The speed slider works while it runs.";
     case "paused":
       return "Paused. <kbd>→</kbd> steps one tick at a time; <b>Resume</b> or <kbd>Space</kbd> continues.";
     case "ended":
-      return "Game over. <b>Replay</b> runs the same game again, or open <b>New game settings</b> to change the world.";
+      return "Finished. <b>Rerun</b> repeats the same run, or open <b>New simulation settings</b> to change the world.";
     default:
       return "";
   }
@@ -308,11 +316,11 @@ async function command(path) {
 $("run").onclick = () => command(game && game.status === "running" ? "pause" : "start");
 $("step").onclick = () => command("step");
 $("reset").onclick = () => {
-  if (game.status !== "ended" && !confirm("Replay this game from the start? Same seed and species, so it plays out identically.")) return;
+  if (game.status !== "ended" && !confirm("Rerun from the start? Same seed and programs, so it plays out identically.")) return;
   command("reset");
 };
 $("end").onclick = () => {
-  if (confirm("End this game now? Its result will be saved.")) command("end");
+  if (confirm("End this run now? Its result will be saved.")) command("end");
 };
 
 let speedTimer = 0;
@@ -353,7 +361,7 @@ function numberOrNull(id) {
 $("settings").onsubmit = async event => {
   event.preventDefault();
   if (game && (game.status === "running" || game.status === "paused")
-      && !confirm("End the current game and start a new one?")) return;
+      && !confirm("End the current run and set up a new simulation?")) return;
   const keep = game ? game.species.filter(s => s.submissionId != null).map(s => s.submissionId) : [];
   const settings = {
     rows: numberOrNull("rows"),
@@ -371,7 +379,7 @@ $("settings").onsubmit = async event => {
       if (!(await addSpecies(id))) break;
     }
     renderGame();
-    toast("New game ready");
+    toast("New simulation ready");
   } catch (e) {
     toast(e.message, "err");
   }
@@ -391,7 +399,7 @@ async function loadResults() {
     const ranked = [...g.species].sort((a, b) => b.current - a.current);
     const reason = { TICK_LIMIT: "tick limit", ONE_SPECIES_LEFT: "one species left", MANUAL: "ended by you" }[g.endReason] || "";
     return el("li", {},
-      el("div", {}, el("strong", {}, ranked.length ? `${ranked[0].name} won` : "No species"),
+      el("div", {}, el("strong", {}, `${g.species.length} program${g.species.length === 1 ? "" : "s"}`),
         el("span", { className: "muted small" },
           ` · ${new Date(r.finishedAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}`
           + ` · ${g.tick} ticks (${reason}) · seed ${g.settings.seed}`)),
@@ -401,7 +409,7 @@ async function loadResults() {
         return el("span", {}, swatch, ` ${s.name} ${s.current}`);
       })));
   }));
-  if (!results.length) $("results").replaceChildren(el("li", { className: "muted" }, "No finished games yet."));
+  if (!results.length) $("results").replaceChildren(el("li", { className: "muted" }, "No finished runs yet."));
 }
 $("results-box").addEventListener("toggle", () => { if ($("results-box").open) loadResults(); });
 

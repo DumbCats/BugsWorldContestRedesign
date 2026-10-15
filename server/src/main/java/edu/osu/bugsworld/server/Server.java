@@ -27,27 +27,30 @@ import java.util.Map;
 /**
  * The BugsWorld web server: HTTP API, live WebSocket, and static web pages.
  *
+ * <p>Students write their programs on their own and upload the .bl file
+ * here; the professor runs everyone's programs together in one simulation
+ * to check how well they work.
+ *
  * <pre>
- * Pages:  /  (students: editor, practice, submit)   /watch  (projector)   /admin  (professor)
+ * Pages:  /  (students: upload and submit a .bl file)   /watch  (projector)   /admin  (professor)
  * Public (students, projector)
  *   GET  /api/health
  *   GET  /api/info                    {requiresClassCode, studentUrls}
- *   GET  /api/samples                 example bugs [{name, source}]
- *   POST /api/practice                {source, opponent, seed?}  a short game, returned as frames
  *   POST /api/compile                 {source}            compile only, nothing stored
  *   POST /api/submissions             {student, source}   needs X-Class-Code if one is set
- *   GET  /api/game                    current game (same JSON as the WebSocket)
- *   WS   /ws/game                     live game frames
+ *   GET  /api/game                    current simulation (same JSON as the WebSocket)
+ *   WS   /ws/game                     live simulation frames
  * Instructor (Authorization: Bearer TOKEN)
  *   GET    /api/admin/check
  *   GET    /api/admin/info            {studentUrls, classCode}
- *   GET    /api/admin/submissions     GET/DELETE /api/admin/submissions/{id}
- *   POST   /api/admin/game            new game {rows, columns, bugsPerSpecies, seed, ...}
+ *   GET    /api/admin/submissions     [{id, student, programName, createdAt, warnings}]
+ *   GET    /api/admin/submissions/{id}   with source and warning details; DELETE removes it
+ *   POST   /api/admin/game            new simulation {rows, columns, bugsPerSpecies, seed, ...}
  *   POST   /api/admin/game/species    {submissionId, name?}
  *   DELETE /api/admin/game/species/{id}
  *   POST   /api/admin/game/start|pause|step|end|reset
  *   PUT    /api/admin/game/speed      {ticksPerSecond}
- *   GET    /api/admin/results         finished games, newest first [{finishedAt, game}]
+ *   GET    /api/admin/results         finished runs, newest first [{finishedAt, game}]
  * </pre>
  */
 public final class Server implements AutoCloseable {
@@ -69,6 +72,8 @@ public final class Server implements AutoCloseable {
     private final LiveViewers viewers;
     private final GameRunner runner;
     private final Javalin app;
+    private final Map<Long, List<DiagnosticJson>> warningCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     private Server(ServerConfig config) {
         this.config = config;
@@ -117,8 +122,6 @@ public final class Server implements AutoCloseable {
         c.routes.get("/api/info", ctx -> ctx.json(Map.of(
                 "requiresClassCode", config.classCode() != null,
                 "studentUrls", Network.studentUrls(port()))));
-        c.routes.get("/api/samples", ctx -> ctx.json(Samples.all()));
-        c.routes.post("/api/practice", this::practice);
         c.routes.post("/api/compile", this::compile);
         c.routes.post("/api/submissions", this::submit);
         c.routes.get("/api/game", ctx -> ctx.json(runner.view()));
@@ -139,17 +142,21 @@ public final class Server implements AutoCloseable {
         });
         c.routes.get("/api/admin/submissions", ctx -> ctx.json(db.submissions().stream()
                 .map(s -> Map.of("id", s.id(), "student", s.student(),
-                        "programName", s.programName(), "createdAt", s.createdAt().toString()))
+                        "programName", s.programName(), "createdAt", s.createdAt().toString(),
+                        "warnings", warnings(s.id()).size()))
                 .toList()));
         c.routes.get("/api/admin/submissions/{id}", ctx -> {
             Database.Submission s = submission(ctx.pathParam("id"));
             ctx.json(Map.of("id", s.id(), "student", s.student(), "programName",
-                    s.programName(), "createdAt", s.createdAt().toString(), "source", s.source()));
+                    s.programName(), "createdAt", s.createdAt().toString(), "source", s.source(),
+                    "warnings", warnings(s.id())));
         });
         c.routes.delete("/api/admin/submissions/{id}", ctx -> {
-            if (!db.deleteSubmission(id(ctx.pathParam("id")))) {
-                throw new ApiException(404, "No submission " + ctx.pathParam("id"));
+            long id = id(ctx.pathParam("id"));
+            if (!db.deleteSubmission(id)) {
+                throw new ApiException(404, "No submission " + id);
             }
+            warningCache.remove(id);
             ctx.status(204);
         });
         c.routes.post("/api/admin/game", this::newGame);
@@ -182,24 +189,6 @@ public final class Server implements AutoCloseable {
     private void compile(Context ctx) {
         CompileRequest req = body(ctx, CompileRequest.class);
         ctx.json(CompileResponse.of(Compiler.compile(source(req.source()))));
-    }
-
-    private void practice(Context ctx) {
-        Api.PracticeRequest req = body(ctx, Api.PracticeRequest.class);
-        CompileResult mine = Compiler.compile(source(req.source()));
-        if (!mine.succeeded()) {
-            ctx.status(422).json(CompileResponse.of(mine));
-            return;
-        }
-        String opponentName = req.opponent() == null ? "hunter" : req.opponent();
-        BugProgram opponent = null;
-        if (!opponentName.equals("none")) {
-            Samples.Sample sample = Samples.named(opponentName).orElseThrow(
-                    () -> new ApiException(400, "No example bug named " + opponentName));
-            opponent = BugProgram.of(Compiler.compile(sample.source()).code());
-        }
-        long seed = req.seed() != null ? req.seed() : GameRunner.randomSeed();
-        ctx.json(Practice.run(BugProgram.of(mine.code()), opponentName, opponent, seed));
     }
 
     private void submit(Context ctx) {
@@ -268,6 +257,18 @@ public final class Server implements AutoCloseable {
     }
 
     // -------------------------------------------------------------- helpers
+
+    /**
+     * Compiler warnings for a stored submission: the signs of weak code
+     * (loops that can spin without acting, programs that can stop, unused
+     * instructions). Cached, since submissions never change.
+     */
+    private List<DiagnosticJson> warnings(long submissionId) {
+        return warningCache.computeIfAbsent(submissionId, id -> db.submission(id)
+                .map(s -> Compiler.compile(s.source()).warnings().stream()
+                        .map(DiagnosticJson::of).toList())
+                .orElse(List.of()));
+    }
 
     /** Serves a page from the bundled web files. */
     private static void page(Context ctx, String file) {

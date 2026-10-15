@@ -1,10 +1,10 @@
-// Projector view: the live class game, as large as the screen allows.
+// Projector view: the live simulation, as large as the screen allows.
 
 import { api, el, followLiveGame } from "./api.js";
 import { drawWorld, renderLegend, speciesColor } from "./world.js";
 
 const $ = id => document.getElementById(id);
-const STATUS = { setup: "Getting ready", running: "Live", paused: "Paused", ended: "Game over" };
+const STATUS = { setup: "Waiting to start", running: "Running", paused: "Paused", ended: "Finished" };
 let game = null;
 let studentUrls = [];
 
@@ -25,25 +25,24 @@ function render() {
 function renderOverlay() {
   const overlay = $("overlay");
   if (game.status === "ended" && game.species.length) {
-    const best = Math.max(...game.species.map(s => s.current));
-    const winners = game.species.filter(s => s.current === best);
-    const names = winners.map(w => {
+    const ranked = [...game.species].sort((a, b) => b.current - a.current || a.id - b.id);
+    const rows = ranked.map(s => {
       const swatch = el("span", { className: "swatch" });
-      swatch.style.background = speciesColor(w.id);
-      return el("span", { className: "winner" }, swatch, w.name);
+      swatch.style.background = speciesColor(s.id);
+      return el("li", {}, swatch, el("span", { className: "name" }, s.name),
+        el("span", { className: "count" }, String(s.current)));
     });
     overlay.replaceChildren(
-      el("div", { className: "overlay-title" }, winners.length > 1 ? "It's a tie!" : "Winner"),
-      ...names,
-      el("div", { className: "muted" }, `${best} bugs after ${game.tick} ticks`));
+      el("div", { className: "overlay-title" }, `Finished after ${game.tick} ticks`),
+      el("ol", { className: "final" }, ...rows));
     overlay.classList.remove("hidden");
   } else if (game.status === "setup" && studentUrls.length) {
     overlay.replaceChildren(
-      el("div", { className: "overlay-title" }, "Submit your bug at"),
+      el("div", { className: "overlay-title" }, "Submit your program at"),
       ...studentUrls.map(url => el("div", { className: "url" }, url.replace(/^http:\/\//, ""))),
       el("div", { className: "muted" }, game.species.length
-        ? `${game.species.length} species ready`
-        : "Waiting for species…"));
+        ? `${game.species.length} program${game.species.length === 1 ? "" : "s"} loaded`
+        : "Waiting for programs…"));
     overlay.classList.remove("hidden");
   } else {
     overlay.classList.add("hidden");

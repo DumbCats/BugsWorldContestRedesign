@@ -1,6 +1,7 @@
 // Drives the three web pages in headless Chrome against a running server:
-// types errors, runs a practice game, submits, starts a class game, and saves
-// screenshots. Fails on any JavaScript error or failed expectation.
+// uploads .bl files (broken, correct, with warnings), submits them, loads them
+// into a simulation, runs it, and saves screenshots. Fails on any JavaScript
+// error or failed expectation.
 //
 //   BUGSWORLD_INSTRUCTOR_TOKEN=demo BUGSWORLD_OPEN_BROWSER=false ./gradlew :server:run &
 //   node tools/ui-check/ui-check.mjs http://localhost:7070 demo out-dir
@@ -8,7 +9,7 @@
 // Needs Node 22+ (built-in WebSocket) and Google Chrome or Chromium.
 
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -90,12 +91,13 @@ function expect(condition, message) {
   console.log(`${condition ? "ok  " : "FAIL"} ${message}`);
 }
 
-/** Replaces the editor's text the way typing would (fires input). */
-const setSource = text => js(`(() => {
-  const t = document.querySelector("#editor textarea");
-  t.value = ${JSON.stringify(text)};
-  t.dispatchEvent(new Event("input"));
-})()`);
+/** Chooses a file in the page's file input, as a student would. */
+async function upload(path) {
+  const { root } = await cdp("DOM.getDocument");
+  const { nodeId } = await cdp("DOM.querySelector", { nodeId: root.nodeId, selector: "#file" });
+  await cdp("DOM.setFileInputFiles", { nodeId, files: [path] });
+  await sleep(700);
+}
 
 try {
   await connect();
@@ -104,59 +106,58 @@ try {
   await cdp("Log.enable");
 
   // ------------------------------------------------------------ student
+  const files = mkdtempSync(join(tmpdir(), "bw-files-"));
+  const write = (name, text) => { const path = join(files, name); writeFileSync(path, text); return path; };
+  const sample = name => readFileSync(new URL(`../../samples/${name}.bl`, import.meta.url), "utf8");
+  const broken = write("oops.bl", "PROGRAM Oops IS\nBEGIN\n    WHILE true DO\n        IF next-is-emtpy THEN\n            mvoe\n        END IF\n    END WHILE\nEND Oops\n");
+  const sloppy = write("sloppy.bl", "PROGRAM Sloppy IS\nBEGIN\n    WHILE true DO\n        IF next-is-enemy THEN\n            infect\n        END IF\n    END WHILE\nEND Sloppy\n");
+
   await open("/");
   await js(`localStorage.clear()`);
   await open("/");
-  expect(await js(`document.querySelector("#status").textContent`) === "✓ Compiles", "starter program compiles");
-  expect(await js(`document.querySelectorAll("#examples option").length`) >= 5, "examples are listed");
+  expect(await js(`document.querySelector("#checked").classList.contains("hidden")`), "nothing shown before a file is chosen");
   await shot("student");
 
-  await setSource("PROGRAM Oops IS\nBEGIN\n    WHILE true DO\n        IF next-is-emtpy THEN\n            mvoe\n        END IF\n    END WHILE\nEND Oops\n");
-  await sleep(900);
-  const errorCount = await js(`document.querySelectorAll("#problems li.err").length`);
-  expect(errorCount === 2, `two errors listed (got ${errorCount})`);
-  expect(await js(`document.querySelectorAll(".editor .mark-err").length`) >= 2, "errors are underlined in the editor");
-  expect(await js(`document.querySelector(".editor .gutter div.err") !== null`), "gutter marks the error lines");
+  await upload(broken);
+  expect(await js(`document.querySelector("#status").textContent`) === "2 errors", "uploaded file is checked at once");
+  expect(await js(`document.querySelectorAll("#problems li.err").length`) === 2, "both errors listed");
+  expect(await js(`document.querySelectorAll("#code .mark-err").length`) >= 2, "errors underlined in the code");
+  expect(await js(`document.querySelector("#code .gutter div.err") !== null`), "margin marks the error lines");
   expect((await js(`document.querySelector("#problems").textContent`)).includes("Did you mean next-is-empty?"), "hint shown");
-  expect(await js(`document.querySelector("#practice").disabled`), "practice disabled while there are errors");
+  expect(await js(`document.querySelector("#submit").disabled`), "can't submit a program with errors");
+  await js(`document.querySelector("#problems li button").click()`);
+  expect(await js(`document.querySelector("#code .gutter div.flash") !== null`), "clicking a problem highlights its line");
   await shot("student-errors");
 
-  await js(`document.querySelector("#problems li button").click()`);
-  const selected = await js(`(() => { const t = document.querySelector("#editor textarea"); return t.value.slice(t.selectionStart, t.selectionEnd); })()`);
-  expect(selected === "next-is-emtpy", `clicking a problem selects it in the editor (got "${selected}")`);
-
-  await js(`(() => { const s = document.querySelector("#examples"); s.value = "hunter"; s.dispatchEvent(new Event("change")); })()`);
-  await sleep(900);
-  expect((await js(`document.querySelector("#editor textarea").value`)).startsWith("PROGRAM Hunter"), "loading an example replaces the program (after confirm)");
-  expect(await js(`document.querySelector("#status").textContent`) === "✓ Compiles", "example compiles");
-
-  await js(`document.querySelector("#practice").click()`);
-  await sleep(2500);
-  expect(!(await js(`document.querySelector("#practice-view").classList.contains("hidden")`)), "practice view appears");
-  expect(await js(`document.querySelectorAll("#practice-legend li").length`) === 2, "practice legend has both species");
-  const tick = await js(`document.querySelector("#tick").textContent`);
-  expect(/tick [1-9]/.test(tick), `practice animates (${tick})`);
-  await shot("student-practice");
-
+  await upload(write("hunter.bl", sample("hunter")));
+  expect(await js(`document.querySelector("#status").textContent`) === "✓ Compiles", "a correct file compiles");
+  expect(await js(`document.querySelector("#submit").textContent`) === "Submit Hunter", "submit names the program");
+  await js(`document.querySelector("#submit").click()`);
+  await sleep(300);
+  expect((await js(`document.querySelector("#submit-result").textContent`)).startsWith("Enter your name"), "asks for a name first");
   await js(`document.querySelector("#student").value = "Ann Lee"`);
   await js(`document.querySelector("#submit").click()`);
-  await sleep(800);
+  await sleep(600);
   const submitted = await js(`document.querySelector("#submit-result").textContent`);
-  expect(submitted.startsWith("Submitted Hunter"), `submit confirms (${submitted.slice(0, 40)}…)`);
+  expect(submitted.startsWith("Submitted Hunter for Ann Lee"), `submit confirms (${submitted.slice(0, 40)}…)`);
   await shot("student-submitted");
 
-  // two more students
-  for (const [name, sample] of [["Bo Chen", "turret"], ["Cy Diaz", "wanderer"]]) {
-    await js(`(() => { const s = document.querySelector("#examples"); s.value = "${sample}"; s.dispatchEvent(new Event("change")); })()`);
-    await sleep(600);
+  for (const [name, path] of [["Bo Chen", write("turret.bl", sample("turret"))],
+                              ["Cy Diaz", write("wanderer.bl", sample("wanderer"))],
+                              ["Dee Fox", sloppy]]) {
+    await upload(path);
     await js(`document.querySelector("#student").value = "${name}"`);
     await js(`document.querySelector("#submit").click()`);
-    await sleep(600);
+    await sleep(500);
   }
+  expect((await js(`document.querySelector("#status").textContent`)).includes("1 warning"), "warnings are shown to the student");
+  await shot("student-warning");
 
   await open("/", 390, 844);
+  await upload(broken);
   await shot("student-phone");
   await open("/", 1440, 900, true);
+  await upload(sloppy);
   await shot("student-dark");
 
   // -------------------------------------------------------------- admin
@@ -170,15 +171,22 @@ try {
   await sleep(1000);
   expect(await js(`location.hash`) === "", "token removed from the address bar");
   expect(await js(`document.querySelector("#dashboard").classList.contains("hidden")`) === false, "token in the link signs in");
-  expect(await js(`document.querySelectorAll("#submissions li").length`) === 3, "three students listed");
+  expect(await js(`document.querySelectorAll("#submissions li").length`) === 4, "four students listed");
+  expect(await js(`document.querySelectorAll("#submissions .badge.warn").length`) === 1, "the sloppy program shows a warning badge");
+  await js(`[...document.querySelectorAll("#submissions li")].find(li => li.textContent.includes("Dee Fox")).querySelector("button").click()`);
+  await sleep(600);
+  expect((await js(`document.querySelector("#source-warnings").textContent`)).includes("can repeat without the bug doing anything"), "View lists the program's warnings");
+  await shot("admin-view");
+  await js(`document.querySelector("#source-close").click()`);
   await js(`document.querySelector("#add-all").click()`);
-  await sleep(1200);
-  expect(await js(`document.querySelectorAll("#legend li").length`) === 3, "add-all puts all three in the game");
+  await sleep(1500);
+  expect(await js(`document.querySelectorAll("#legend li").length`) === 4, "one click loads all four programs");
   await shot("admin-setup");
   await js(`document.querySelector("#run").click()`);
   await sleep(2500);
-  expect(await js(`document.querySelector("#game-status").textContent`) === "Running", "start runs the game");
+  expect(await js(`document.querySelector("#game-status").textContent`) === "Running", "Start runs the simulation");
   await shot("admin-running");
+  expect(await js(`document.querySelector("#game-title").textContent`) === "Simulation", "dashboard calls it a simulation");
   await js(`document.dispatchEvent(new KeyboardEvent("keydown", { key: " " }))`);
   await sleep(500);
   expect(await js(`document.querySelector("#game-status").textContent`) === "Paused", "space pauses");
@@ -187,20 +195,20 @@ try {
   // ---------------------------------------------------------- projector
   await open("/watch", 1920, 1080);
   await sleep(1000);
-  expect(await js(`document.querySelectorAll("#legend li").length`) === 3, "projector shows the species");
+  expect(await js(`document.querySelectorAll("#legend li").length`) === 4, "projector shows every program");
   await shot("watch-running");
 
   await fetch(`${base}/api/admin/game/end`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
   await sleep(800);
-  expect((await js(`document.querySelector("#overlay").textContent`)).toLowerCase().includes("winner")
-      || (await js(`document.querySelector("#overlay").textContent`)).includes("tie"), "projector shows the winner");
+  expect((await js(`document.querySelector("#overlay").textContent`)).startsWith("Finished after"), "projector shows the final counts");
+  expect(await js(`document.querySelectorAll("#overlay ol.final li").length`) === 4, "every program is in the final list");
   await shot("watch-ended");
 
   await open(`/admin`);
   await sleep(1000);
   await js(`document.querySelector("#results-box").open = true`);
   await sleep(800);
-  expect((await js(`document.querySelector("#results").textContent`)).includes("won"), "past games list the winner");
+  expect((await js(`document.querySelector("#results").textContent`)).includes("4 programs"), "past runs are listed");
   await shot("admin-results");
 } catch (e) {
   problems.push(String(e.stack || e));

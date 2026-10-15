@@ -13,105 +13,48 @@
     <svg viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="19" rx="8" ry="10" fill="#2f6fde"/><circle cx="16" cy="7" r="5" fill="#2f6fde"/><path d="M8 14 3 11M8 20H2M8 26l-5 3M24 14l5-3M24 20h6M24 26l5 3" stroke="#2f6fde" stroke-width="2"/></svg>
     BugsWorld
   </div>
-  <span class="muted">Write a bug, test it, submit it.</span>
   <span class="spacer"></span>
-  <a id="live" class="button small" href="/watch" target="_blank" rel="noopener">Watch the class game</a>
+  <a id="live" class="button small" href="/watch" target="_blank" rel="noopener">Watch the simulation</a>
 </header>
 
-<main class="page student-layout">
-  <section class="card" aria-labelledby="program-title">
-    <div class="card-head">
-      <h2 id="program-title">Your program</h2>
-      <span id="status" class="pill" role="status">Checking…</span>
-      <span class="spacer"></span>
-      <select id="examples" aria-label="Load an example bug">
-        <option value="">Start from an example…</option>
-      </select>
-    </div>
-    <div id="editor"></div>
-    <div class="row" style="margin-top:10px">
-      <button id="format" class="small" title="Fix indentation and spacing">Tidy up</button>
-      <button id="open" class="small">Open .bl file</button>
-      <button id="save" class="small">Save .bl file</button>
-      <input id="file" type="file" accept=".bl,.txt" class="hidden">
-      <span class="spacer"></span>
-      <span class="muted small">Saved in this browser as you type</span>
-    </div>
-    <ul id="problems" class="problems" style="margin-top:12px" aria-label="Problems"></ul>
-  </section>
-
-  <div class="stack">
-    <section class="card" aria-labelledby="submit-title">
-      <h2 id="submit-title">Submit to the class game</h2>
-      <form id="submit-form" class="stack" style="gap:12px" novalidate>
-        <div class="field">
-          <label for="student">Your name</label>
-          <input id="student" type="text" maxlength="60" autocomplete="name" placeholder="e.g. Ann Smith">
-        </div>
-        <div class="field hidden" id="code-field">
-          <label for="class-code">Class code</label>
-          <input id="class-code" type="text" maxlength="40" autocomplete="off" placeholder="from your professor">
-        </div>
-        <button id="submit" class="primary big" type="submit">Submit my bug</button>
-        <div id="submit-result" class="notice hidden" role="status"></div>
-      </form>
-    </section>
-
-    <section class="card" aria-labelledby="practice-title">
-      <div class="card-head">
-        <h2 id="practice-title">Practice game</h2>
-        <span class="spacer"></span>
-        <select id="opponent" aria-label="Opponent"></select>
-        <button id="practice" class="primary">Run</button>
-      </div>
-      <p id="practice-hint" class="muted small" style="margin:0">
-        Try your bug against an example on a small world before you submit. Nothing is sent to the class game.
+<main class="page narrow">
+  <section class="card stack" aria-labelledby="title">
+    <div>
+      <h1 id="title">Submit your BL program</h1>
+      <p class="muted" style="margin:6px 0 0">
+        Upload the <code>.bl</code> file you wrote. It is checked right away; once it compiles,
+        submit it and your professor will run it in the class simulation.
       </p>
-      <div id="practice-view" class="hidden">
-        <div class="world-wrap"><canvas id="practice-canvas" class="world"></canvas></div>
-        <div class="playback">
-          <button id="play" class="small" aria-label="Pause">❚❚</button>
-          <input id="scrub" type="range" min="0" value="0" aria-label="Tick">
-          <span id="tick" class="small muted" style="min-width:76px">tick 0</span>
-          <select id="speed" aria-label="Playback speed">
-            <option value="10">1×</option>
-            <option value="25" selected>2×</option>
-            <option value="60">5×</option>
-          </select>
-        </div>
-        <ul id="practice-legend" class="legend" style="margin-top:12px"></ul>
-        <div id="practice-note" class="notice warn hidden" style="margin-top:12px"></div>
-      </div>
-    </section>
+    </div>
 
-    <details class="card">
-      <summary><strong>BL cheat sheet</strong></summary>
-      <div class="cheat">
-<pre><b>PROGRAM</b> MyBug <b>IS</b>
-    <b>INSTRUCTION</b> turn-around <b>IS</b>
-        turnleft
-        turnleft
-    <b>END</b> turn-around
-<b>BEGIN</b>
-    <b>WHILE</b> true <b>DO</b>
-        <b>IF</b> next-is-enemy <b>THEN</b>
-            infect
-        <b>ELSE</b>
-            move
-        <b>END IF</b>
-    <b>END WHILE</b>
-<b>END</b> MyBug</pre>
-        <p><strong>Actions</strong> (each one uses up the bug's turn):
-          <code>move</code> <code>turnleft</code> <code>turnright</code> <code>infect</code> <code>skip</code></p>
-        <p><strong>Conditions</strong>:
-          <code>next-is-empty</code> <code>next-is-wall</code> <code>next-is-friend</code> <code>next-is-enemy</code>,
-          the <code>next-is-not-…</code> version of each, <code>random</code> (heads or tails), <code>true</code></p>
-        <p><strong>Tips</strong>: keywords are CAPITALS; names use letters, digits and <code>-</code>;
-          wrap your bug in <code>WHILE true DO … END WHILE</code> so it never stops; make every pass
-          through a loop do an action, or your bug loses turns.</p>
+    <div class="fields two">
+      <div class="field">
+        <label for="student">Your name</label>
+        <input id="student" type="text" maxlength="60" autocomplete="name" placeholder="e.g. Ann Smith">
       </div>
-    </details>
-  </div>
+      <div class="field hidden" id="code-field">
+        <label for="class-code">Class code</label>
+        <input id="class-code" type="text" maxlength="40" autocomplete="off" placeholder="from your professor">
+      </div>
+    </div>
+
+    <label id="drop" class="dropzone" for="file">
+      <input id="file" type="file" accept=".bl,.txt" class="visually-hidden">
+      <strong>Choose your .bl file</strong>
+      <span class="muted">or drag it here</span>
+    </label>
+
+    <div id="checked" class="stack hidden" style="gap:12px">
+      <div class="row">
+        <strong id="file-name"></strong>
+        <span id="status" class="pill" role="status"></span>
+      </div>
+      <div id="code"></div>
+      <ul id="problems" class="problems" aria-label="Problems"></ul>
+      <button id="submit" class="primary big">Submit</button>
+      <div id="submit-result" class="notice hidden" role="status"></div>
+    </div>
+  </section>
 </main>
 <script type="module" src="/js/student.js"></script>
 </body>

@@ -95,40 +95,17 @@ class ServerTest {
     // ---------------------------------------------------------------- tests
 
     @Test
-    void pagesAndSamplesAreServed() throws Exception {
+    void pagesAreServed() throws Exception {
         for (String path : new String[] {"/", "/watch", "/admin", "/css/app.css", "/js/student.js",
-                "/js/admin.js", "/js/watch.js", "/js/editor.js", "/js/bl.js", "/js/world.js",
+                "/js/admin.js", "/js/watch.js", "/js/codeview.js", "/js/bl.js", "/js/world.js",
                 "/js/api.js"}) {
             HttpResponse<String> r = http.send(HttpRequest.newBuilder(URI.create(base + path)).build(),
                     HttpResponse.BodyHandlers.ofString());
             assertEquals(200, r.statusCode(), path);
         }
-        JsonNode samples = send("GET", "/api/samples", null, null).body();
-        assertTrue(samples.size() >= 4);
-        assertTrue(samples.get(0).get("source").asText().startsWith("PROGRAM"));
         JsonNode info = send("GET", "/api/info", null, null).body();
         assertFalse(info.get("requiresClassCode").asBoolean());
         assertTrue(info.get("studentUrls").isArray());
-    }
-
-    @Test
-    void practiceRunsAShortGame() throws Exception {
-        JsonNode run = send("POST", "/api/practice",
-                java.util.Map.of("source", HUNTER, "opponent", "turret", "seed", 5), null).body();
-        assertEquals(java.util.List.of("Your bug", "turret"),
-                json.convertValue(run.get("species"), java.util.List.class));
-        assertEquals(Practice.TICKS + 1, run.get("frames").size());
-        assertEquals(2 * Practice.BUGS * 4, run.get("frames").get(0).size());
-        assertEquals("ended", run.get("result").get("status").asText());
-        JsonNode again = send("POST", "/api/practice",
-                java.util.Map.of("source", HUNTER, "opponent", "turret", "seed", 5), null).body();
-        assertEquals(run.get("frames"), again.get("frames"), "same seed, same practice game");
-
-        Response bad = send("POST", "/api/practice",
-                java.util.Map.of("source", "PROGRAM P IS BEGIN mvoe END P"), null);
-        assertEquals(422, bad.status());
-        assertEquals(400, send("POST", "/api/practice",
-                java.util.Map.of("source", HUNTER, "opponent", "nobody"), null).status());
     }
 
     @Test
@@ -200,6 +177,26 @@ class ServerTest {
                 .get("source").asText());
         assertEquals(204, admin("DELETE", "/api/admin/submissions/" + id, null).status());
         assertEquals(404, admin("GET", "/api/admin/submissions/" + id, null).status());
+    }
+
+    @Test
+    void professorSeesEachSubmissionsWarnings() throws Exception {
+        String sloppy = """
+                PROGRAM Sloppy IS
+                BEGIN
+                    WHILE true DO
+                        IF next-is-enemy THEN infect END IF
+                    END WHILE
+                END Sloppy
+                """;
+        long id = submit("Dee", sloppy);
+        submit("Ann", HUNTER);
+        JsonNode list = admin("GET", "/api/admin/submissions", null).body();
+        assertEquals(0, list.get(0).get("warnings").asInt(), "Ann's hunter is clean");
+        assertEquals(1, list.get(1).get("warnings").asInt());
+        JsonNode detail = admin("GET", "/api/admin/submissions/" + id, null).body();
+        assertEquals("silent-loop", detail.get("warnings").get(0).get("code").asText());
+        assertEquals(3, detail.get("warnings").get(0).get("line").asInt());
     }
 
     @Test
