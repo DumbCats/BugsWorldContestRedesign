@@ -28,21 +28,26 @@ import java.util.Map;
  * The BugsWorld web server: HTTP API, live WebSocket, and static web pages.
  *
  * <pre>
+ * Pages:  /  (students: editor, practice, submit)   /watch  (projector)   /admin  (professor)
  * Public (students, projector)
  *   GET  /api/health
+ *   GET  /api/info                    {requiresClassCode, studentUrls}
+ *   GET  /api/samples                 example bugs [{name, source}]
+ *   POST /api/practice                {source, opponent, seed?}  a short game, returned as frames
  *   POST /api/compile                 {source}            compile only, nothing stored
  *   POST /api/submissions             {student, source}   needs X-Class-Code if one is set
  *   GET  /api/game                    current game (same JSON as the WebSocket)
  *   WS   /ws/game                     live game frames
  * Instructor (Authorization: Bearer TOKEN)
  *   GET    /api/admin/check
+ *   GET    /api/admin/info            {studentUrls, classCode}
  *   GET    /api/admin/submissions     GET/DELETE /api/admin/submissions/{id}
  *   POST   /api/admin/game            new game {rows, columns, bugsPerSpecies, seed, ...}
  *   POST   /api/admin/game/species    {submissionId, name?}
  *   DELETE /api/admin/game/species/{id}
  *   POST   /api/admin/game/start|pause|step|end|reset
  *   PUT    /api/admin/game/speed      {ticksPerSecond}
- *   GET    /api/admin/results         finished games, newest first
+ *   GET    /api/admin/results         finished games, newest first [{finishedAt, game}]
  * </pre>
  */
 public final class Server implements AutoCloseable {
@@ -93,6 +98,7 @@ public final class Server implements AutoCloseable {
     }
 
     private void configure(JavalinConfig c) {
+        c.startup.showJavalinBanner = false; // Main prints what the professor needs
         c.staticFiles.add("/public", Location.CLASSPATH);
 
         c.routes.exception(ApiException.class, (e, ctx) ->
@@ -102,8 +108,17 @@ public final class Server implements AutoCloseable {
         c.routes.exception(IllegalStateException.class, (e, ctx) ->
                 ctx.status(409).json(new ErrorResponse(e.getMessage())));
 
+        // Pages (index.html is also served at / by the static file handler)
+        c.routes.get("/watch", ctx -> page(ctx, "watch.html"));
+        c.routes.get("/admin", ctx -> page(ctx, "admin.html"));
+
         // Public
         c.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+        c.routes.get("/api/info", ctx -> ctx.json(Map.of(
+                "requiresClassCode", config.classCode() != null,
+                "studentUrls", Network.studentUrls(port()))));
+        c.routes.get("/api/samples", ctx -> ctx.json(Samples.all()));
+        c.routes.post("/api/practice", this::practice);
         c.routes.post("/api/compile", this::compile);
         c.routes.post("/api/submissions", this::submit);
         c.routes.get("/api/game", ctx -> ctx.json(runner.view()));
@@ -116,6 +131,12 @@ public final class Server implements AutoCloseable {
         // Instructor
         c.routes.before("/api/admin/*", this::requireInstructor);
         c.routes.get("/api/admin/check", ctx -> ctx.status(204));
+        c.routes.get("/api/admin/info", ctx -> {
+            Map<String, Object> info = new java.util.LinkedHashMap<>();
+            info.put("studentUrls", Network.studentUrls(port()));
+            info.put("classCode", config.classCode());
+            ctx.json(info);
+        });
         c.routes.get("/api/admin/submissions", ctx -> ctx.json(db.submissions().stream()
                 .map(s -> Map.of("id", s.id(), "student", s.student(),
                         "programName", s.programName(), "createdAt", s.createdAt().toString()))
@@ -147,8 +168,13 @@ public final class Server implements AutoCloseable {
             }
             ctx.json(runner.setSpeed(req.ticksPerSecond()));
         });
-        c.routes.get("/api/admin/results", ctx ->
-                ctx.contentType("application/json").result("[" + String.join(",", db.results()) + "]"));
+        c.routes.get("/api/admin/results", ctx -> {
+            // Stored as JSON already; wrap without re-parsing.
+            List<String> items = db.results().stream()
+                    .map(r -> "{\"finishedAt\":\"" + r.finishedAt() + "\",\"game\":" + r.json() + "}")
+                    .toList();
+            ctx.contentType("application/json").result("[" + String.join(",", items) + "]");
+        });
     }
 
     // ------------------------------------------------------------- handlers
@@ -156,6 +182,24 @@ public final class Server implements AutoCloseable {
     private void compile(Context ctx) {
         CompileRequest req = body(ctx, CompileRequest.class);
         ctx.json(CompileResponse.of(Compiler.compile(source(req.source()))));
+    }
+
+    private void practice(Context ctx) {
+        Api.PracticeRequest req = body(ctx, Api.PracticeRequest.class);
+        CompileResult mine = Compiler.compile(source(req.source()));
+        if (!mine.succeeded()) {
+            ctx.status(422).json(CompileResponse.of(mine));
+            return;
+        }
+        String opponentName = req.opponent() == null ? "hunter" : req.opponent();
+        BugProgram opponent = null;
+        if (!opponentName.equals("none")) {
+            Samples.Sample sample = Samples.named(opponentName).orElseThrow(
+                    () -> new ApiException(400, "No example bug named " + opponentName));
+            opponent = BugProgram.of(Compiler.compile(sample.source()).code());
+        }
+        long seed = req.seed() != null ? req.seed() : GameRunner.randomSeed();
+        ctx.json(Practice.run(BugProgram.of(mine.code()), opponentName, opponent, seed));
     }
 
     private void submit(Context ctx) {
@@ -224,6 +268,15 @@ public final class Server implements AutoCloseable {
     }
 
     // -------------------------------------------------------------- helpers
+
+    /** Serves a page from the bundled web files. */
+    private static void page(Context ctx, String file) {
+        java.io.InputStream in = Server.class.getResourceAsStream("/public/" + file);
+        if (in == null) {
+            throw new ApiException(404, "Missing page " + file);
+        }
+        ctx.contentType("text/html; charset=utf-8").result(in);
+    }
 
     private void requireInstructor(Context ctx) {
         String header = ctx.header("Authorization");

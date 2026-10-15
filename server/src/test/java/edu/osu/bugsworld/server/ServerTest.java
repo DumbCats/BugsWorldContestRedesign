@@ -95,6 +95,54 @@ class ServerTest {
     // ---------------------------------------------------------------- tests
 
     @Test
+    void pagesAndSamplesAreServed() throws Exception {
+        for (String path : new String[] {"/", "/watch", "/admin", "/css/app.css", "/js/student.js",
+                "/js/admin.js", "/js/watch.js", "/js/editor.js", "/js/bl.js", "/js/world.js",
+                "/js/api.js"}) {
+            HttpResponse<String> r = http.send(HttpRequest.newBuilder(URI.create(base + path)).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, r.statusCode(), path);
+        }
+        JsonNode samples = send("GET", "/api/samples", null, null).body();
+        assertTrue(samples.size() >= 4);
+        assertTrue(samples.get(0).get("source").asText().startsWith("PROGRAM"));
+        JsonNode info = send("GET", "/api/info", null, null).body();
+        assertFalse(info.get("requiresClassCode").asBoolean());
+        assertTrue(info.get("studentUrls").isArray());
+    }
+
+    @Test
+    void practiceRunsAShortGame() throws Exception {
+        JsonNode run = send("POST", "/api/practice",
+                java.util.Map.of("source", HUNTER, "opponent", "turret", "seed", 5), null).body();
+        assertEquals(java.util.List.of("Your bug", "turret"),
+                json.convertValue(run.get("species"), java.util.List.class));
+        assertEquals(Practice.TICKS + 1, run.get("frames").size());
+        assertEquals(2 * Practice.BUGS * 4, run.get("frames").get(0).size());
+        assertEquals("ended", run.get("result").get("status").asText());
+        JsonNode again = send("POST", "/api/practice",
+                java.util.Map.of("source", HUNTER, "opponent", "turret", "seed", 5), null).body();
+        assertEquals(run.get("frames"), again.get("frames"), "same seed, same practice game");
+
+        Response bad = send("POST", "/api/practice",
+                java.util.Map.of("source", "PROGRAM P IS BEGIN mvoe END P"), null);
+        assertEquals(422, bad.status());
+        assertEquals(400, send("POST", "/api/practice",
+                java.util.Map.of("source", HUNTER, "opponent", "nobody"), null).status());
+    }
+
+    @Test
+    void generatedTokenIsKeptAcrossRestarts() {
+        Path dir = data.resolve("token-test");
+        java.util.Map<String, String> env = java.util.Map.of("BUGSWORLD_DATA_DIR", dir.toString());
+        String first = ServerConfig.fromEnvironment(env).instructorToken();
+        assertEquals(8, first.length());
+        assertEquals(first, ServerConfig.fromEnvironment(env).instructorToken());
+        assertEquals("mine", ServerConfig.fromEnvironment(java.util.Map.of("BUGSWORLD_DATA_DIR",
+                dir.toString(), "BUGSWORLD_INSTRUCTOR_TOKEN", " mine ")).instructorToken());
+    }
+
+    @Test
     void health() throws Exception {
         assertEquals("ok", send("GET", "/api/health", null, null).body().get("status").asText());
     }
@@ -104,7 +152,7 @@ class ServerTest {
         HttpResponse<String> r = http.send(HttpRequest.newBuilder(URI.create(base + "/")).build(),
                 HttpResponse.BodyHandlers.ofString());
         assertEquals(200, r.statusCode());
-        assertTrue(r.body().contains("<title>BugsWorld Live</title>"));
+        assertTrue(r.body().contains("<title>BugsWorld</title>"));
     }
 
     @Test
@@ -219,8 +267,10 @@ class ServerTest {
 
         JsonNode results = admin("GET", "/api/admin/results", null).body();
         assertEquals(1, results.size());
-        assertEquals(40, results.get(0).get("tick").asLong());
-        assertEquals(0, results.get(0).get("bugs").size(), "results don't store every bug");
+        assertTrue(results.get(0).has("finishedAt"));
+        JsonNode result = results.get(0).get("game");
+        assertEquals(40, result.get("tick").asLong());
+        assertEquals(0, result.get("bugs").size(), "results don't store every bug");
     }
 
     @Test

@@ -8,7 +8,7 @@ The rules we're matching are in [reference-behavior.md](reference-behavior.md). 
 |---|---|
 | Backend | Java 21 (Gradle toolchain), Gradle 9 Kotlin DSL, multi-module |
 | Web server | Javalin 7 + Jackson |
-| Frontend | Vite + React + TypeScript, CodeMirror 6 editor, `<canvas>` world view (Phase 5) |
+| Frontend | Plain HTML, CSS and JavaScript modules served by the Java server, with **no build step**. The professor needs only Java (no Node, no internet). This replaces the earlier Vite/React plan to make the app as easy as possible to run. |
 | Rules | Same as the jar by default (reference-behavior.md §2–7). Its defects are fixed (§10). Every new rule is optional and off by default. |
 | Determinism | One seeded RNG per game; the same seed, settings and programs replay the same game |
 | Submissions | `.bl` source (main path) and `.bo` upload, like the jar client |
@@ -23,7 +23,7 @@ engine/   pure Java, no runtime dependencies
   sim:      Game (placement, ticks, stats), Snapshot, Event, AsciiRenderer; Simulate CLI
 server/   Javalin: Server (routes), GameRunner (game thread), LiveViewers (WebSocket),
           Database (SQLite); static page in resources/public
-web/      Vite app: student editor, professor dashboard, projector display
+server/src/main/resources/public/   web pages: / (students), /watch (projector), /admin (professor)
 tools/oracle/   scripts that run the OSU jars as a test oracle
 samples/  example bugs (also used by the tests)
 ```
@@ -129,14 +129,46 @@ Code is in `server/`. `Server.java` lists every endpoint.
 - [x] A temporary live viewer at `/` (canvas + species table) for testing until Phase 5.
 - [x] Tests: 13 end-to-end tests run a real server on a random port and use HTTP and WebSocket. They cover auth, class code, validation, the lifecycle, reset replays, restart persistence, results and live frames.
 
-### Phase 5: Web frontend
-- [ ] Student page: BL editor with syntax highlighting and inline errors, compile, download `.bo`, and a solo test run against built-in sample bugs.
-- [ ] Professor dashboard: submission list, pick species, settings, the lifecycle controls, a speed slider, and results.
-- [ ] Projector view: full-screen canvas, species legend and live min/current/max bars like the jar's stats panel.
+### Phase 5: Web pages ✅
+Pages are in `server/src/main/resources/public/`. Shared modules: `api.js`, `world.js` (canvas), `bl.js` (highlighter), `editor.js`.
 
-### Phase 6: Deploy
-- [ ] One Docker image (server + built frontend).
-- [ ] Limits on source size, compile time and request rate.
+- [x] **Students (`/`):**
+  - an editor with BL syntax colors, line numbers, Tab and auto-indent;
+  - errors and warnings **underlined as you type** and listed with hints; clicking one jumps to it;
+  - a starter bug, example bugs, open and save `.bl` files, and "Tidy up" (format);
+  - the draft autosaves in the browser;
+  - a **practice game** against an example bug, animated with play, scrub and speed controls, which explains stuck or halted bugs;
+  - one-click submit (name remembered, class code if required);
+  - a cheat sheet.
+- [x] **Projector (`/watch`):**
+  - a dark theme and a world as large as the screen allows;
+  - a large legend with counts, share bars and min/max;
+  - before the start, it shows the address to submit at; at the end, it shows the winner;
+  - <kbd>F</kbd> toggles full screen, and it reconnects automatically.
+- [x] **Professor (`/admin`):**
+  - the server opens it signed in (`#token=` in the link, which is removed from the address bar);
+  - the student address with a Copy button;
+  - submissions grouped as newest per student, with search, View (with highlighting), Add and Delete;
+  - **Add everyone's newest bug** in one click;
+  - Start/Pause, Step, Replay and End, with <kbd>Space</kbd> and <kbd>→</kbd> shortcuts;
+  - a live speed slider, the live world, and the legend with Remove;
+  - a "next step" hint for every state;
+  - new-game settings that keep the current species;
+  - past games with standings.
+- [x] Server support: `/api/info`, `/api/samples` (the `samples/` bugs bundled at build time), `/api/practice` (300 ticks, 12×12, run in one go and returned as frames), and `/api/admin/info`.
+- [x] Tests:
+  - server tests for the pages, samples and practice;
+  - `server/src/test/js` highlighter tests, run by `./gradlew check` when Node is installed;
+  - **`tools/ui-check/ui-check.mjs`** drives all three pages in headless Chrome. It types errors, clicks problems, loads examples, runs practice, submits, signs in by link, adds everyone, starts and pauses, ends, and checks the winner and results. It fails on any JavaScript error and saves screenshots.
+
+### Phase 6: Deploy (partly done)
+- [x] `./gradlew :server:distZip` builds `bugsworld.zip` with `bin/bugsworld` and `bugsworld.bat`, and needs only Java 21+.
+  - Startup prints a short block: dashboard, token, student addresses, class code, data folder.
+  - It opens the dashboard and keeps data in `~/BugsWorld`.
+  - A generated token is saved there, so it survives restarts.
+- [x] Limits on source size (100,000 characters) and name length. Compiling is bounded by the code-size cap.
+- [ ] Rate limiting, if the class network turns out to need it.
+- [ ] A Docker image, if it ends up hosted on a server rather than the professor's computer.
 - [ ] Hosting and login at OSU: still unknown.
 
 ## Still to ask the professor

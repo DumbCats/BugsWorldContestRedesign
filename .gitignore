@@ -173,3 +173,6 @@ CLAUDE.md
 reference/
 # --- BugsWorld server data (SQLite submissions and results) ---
 /data/
+
+# --- UI check screenshots (tools/ui-check) ---
+ui-check-out/

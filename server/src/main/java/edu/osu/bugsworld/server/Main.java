@@ -1,14 +1,9 @@
 package edu.osu.bugsworld.server;
 
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.awt.Desktop;
+import java.net.URI;
 
-/** Starts the BugsWorld server and prints how to reach it. */
+/** Starts the BugsWorld server, prints how to reach it, and opens the dashboard. */
 public final class Main {
 
     private Main() {
@@ -18,39 +13,38 @@ public final class Main {
         ServerConfig config = ServerConfig.fromEnvironment(System.getenv());
         Server server = Server.start(config);
         Runtime.getRuntime().addShutdownHook(new Thread(server::close));
+        String local = "http://localhost:" + server.port();
 
         System.out.println();
-        System.out.println("BugsWorld is running.");
-        System.out.println("  On this computer:  http://localhost:" + server.port());
-        for (String address : lanAddresses()) {
-            System.out.println("  For students:      http://" + address + ":" + server.port());
-        }
-        System.out.println("  Instructor token:  " + config.instructorToken()
-                + (System.getenv("BUGSWORLD_INSTRUCTOR_TOKEN") == null
-                        ? "   (random; set BUGSWORLD_INSTRUCTOR_TOKEN to keep one)" : ""));
-        System.out.println("  Class code:        " + (config.classCode() == null
-                ? "none (set BUGSWORLD_CLASS_CODE to require one)" : config.classCode()));
-        System.out.println("  Data:              " + config.dataDir().toAbsolutePath());
+        System.out.println("BugsWorld is running. Leave this window open during the lab.");
         System.out.println();
+        System.out.println("  Professor dashboard:  " + local + "/admin");
+        System.out.println("  Instructor token:     " + config.instructorToken()
+                + (System.getenv("BUGSWORLD_INSTRUCTOR_TOKEN") == null
+                        ? "   (kept in " + ServerConfig.tokenFile(config.dataDir()) + ")" : ""));
+        for (String url : Network.studentUrls(server.port())) {
+            System.out.println("  Students open:        " + url);
+        }
+        System.out.println("  Class code:           " + (config.classCode() == null
+                ? "none (set BUGSWORLD_CLASS_CODE to require one)" : config.classCode()));
+        System.out.println("  Data folder:          " + config.dataDir().toAbsolutePath());
+        System.out.println();
+
+        if (!"false".equalsIgnoreCase(System.getenv("BUGSWORLD_OPEN_BROWSER"))) {
+            // The token rides in the URL fragment, which never leaves the
+            // browser; the dashboard stores it and removes it from the address.
+            openBrowser(local + "/admin#token=" + config.instructorToken());
+        }
     }
 
-    /** IPv4 addresses other computers on the network may be able to reach. */
-    private static List<String> lanAddresses() {
-        List<String> addresses = new ArrayList<>();
+    private static void openBrowser(String url) {
         try {
-            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) {
-                    continue;
-                }
-                for (InetAddress a : Collections.list(ni.getInetAddresses())) {
-                    if (a instanceof Inet4Address && !a.isLinkLocalAddress()) {
-                        addresses.add(a.getHostAddress());
-                    }
-                }
+            if (Desktop.isDesktopSupported()
+                    && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                Desktop.getDesktop().browse(URI.create(url));
             }
-        } catch (SocketException e) {
-            // fall through with whatever we found
+        } catch (Exception | Error e) {
+            // No desktop (e.g. a headless server): the printed URLs are enough.
         }
-        return addresses;
     }
 }

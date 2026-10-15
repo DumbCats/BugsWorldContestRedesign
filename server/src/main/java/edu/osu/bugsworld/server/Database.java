@@ -30,6 +30,10 @@ public final class Database implements AutoCloseable {
             Instant createdAt) {
     }
 
+    /** A finished game: when, and its final {@link GameView} as JSON. */
+    public record Result(Instant finishedAt, String json) {
+    }
+
     /** A submission without its source, for lists. */
     public record SubmissionSummary(long id, String student, String programName,
             Instant createdAt) {
@@ -144,14 +148,14 @@ public final class Database implements AutoCloseable {
         }
     }
 
-    /** Result JSON documents, newest first. */
-    public synchronized List<String> results() {
-        List<String> list = new ArrayList<>();
+    /** Finished games, newest first. */
+    public synchronized List<Result> results() {
+        List<Result> list = new ArrayList<>();
         try (PreparedStatement s = connection.prepareStatement(
-                "SELECT result_json FROM results ORDER BY id DESC");
+                "SELECT finished_at, result_json FROM results ORDER BY id DESC");
                 ResultSet r = s.executeQuery()) {
             while (r.next()) {
-                list.add(r.getString(1));
+                list.add(new Result(Instant.parse(r.getString(1)), r.getString(2)));
             }
             return list;
         } catch (SQLException e) {

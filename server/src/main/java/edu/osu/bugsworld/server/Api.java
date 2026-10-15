@@ -43,6 +43,10 @@ final class Api {
     record SubmissionRequest(String student, String source) {
     }
 
+    /** {@code opponent}: an example bug's name, or "none"; default "hunter". */
+    record PracticeRequest(String source, String opponent, Long seed) {
+    }
+
     record SubmissionResponse(long id, String student, String programName,
             List<DiagnosticJson> warnings) {
     }
