@@ -13,12 +13,25 @@
     <svg viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="19" rx="8" ry="10" fill="#2f6fde"/><circle cx="16" cy="7" r="5" fill="#2f6fde"/><path d="M8 14 3 11M8 20H2M8 26l-5 3M24 14l5-3M24 20h6M24 26l5 3" stroke="#2f6fde" stroke-width="2"/></svg>
     BugsWorld
   </div>
-  <span id="status" class="pill">Connecting…</span>
+  <span id="status" class="pill hidden">Connecting…</span>
   <span id="tick" class="muted"></span>
   <span class="spacer"></span>
   <button id="fullscreen" class="small" title="Full screen (F)">Full screen</button>
 </header>
-<main class="watch-main">
+<section id="login" class="card hidden" style="max-width:440px;margin:60px auto">
+  <h2>Projector view</h2>
+  <p class="muted">Only the professor can show the simulation. Open this view from the dashboard,
+    or enter the instructor token shown in the window where BugsWorld is running.</p>
+  <form id="login-form" class="stack" style="gap:12px">
+    <div class="field">
+      <label for="token">Instructor token</label>
+      <input id="token" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="primary big" type="submit">Show the simulation</button>
+    <div id="login-error" class="notice err hidden" role="alert"></div>
+  </form>
+</section>
+<main id="main" class="watch-main hidden">
   <div id="stage" class="world-wrap">
     <canvas id="world" class="world"></canvas>
     <div id="overlay" class="overlay hidden" role="status"></div>

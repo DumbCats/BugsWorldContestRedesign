@@ -116,6 +116,7 @@ try {
   await js(`localStorage.clear()`);
   await open("/");
   expect(await js(`document.querySelector("#checked").classList.contains("hidden")`), "nothing shown before a file is chosen");
+  expect(await js(`document.querySelector('a[href*="watch"]') === null`), "students get no link to the simulation");
   await shot("student");
 
   await upload(broken);
@@ -193,7 +194,24 @@ try {
   await js(`document.dispatchEvent(new KeyboardEvent("keydown", { key: " " }))`);
 
   // ---------------------------------------------------------- projector
+  expect((await js(`document.querySelector("#projector").getAttribute("href")`)) === `/watch#token=${token}`,
+    "the dashboard's projector button carries the sign-in");
+  const savedToken = await js(`localStorage.getItem("bw.token")`);
+  await js(`localStorage.clear()`);
   await open("/watch", 1920, 1080);
+  expect(!(await js(`document.querySelector("#login").classList.contains("hidden")`)), "projector without the token asks for it");
+  expect(await js(`document.querySelectorAll("#legend li").length`) === 0, "and shows no simulation");
+  await shot("watch-locked");
+  const before = problems.length;
+  await js(`document.querySelector("#token").value = "wrong"`);
+  await js(`document.querySelector("#login-form").requestSubmit()`);
+  await sleep(800);
+  // The browser logs the server's 401 for the wrong token; that one is expected.
+  problems.splice(before, problems.length - before,
+    ...problems.slice(before).filter(p => !p.includes("status of 401")));
+  expect((await js(`document.querySelector("#login-error").textContent`)).includes("isn't right"), "a wrong token is refused");
+  await js(`localStorage.setItem("bw.token", ${JSON.stringify(savedToken)})`);
+  await open(`/watch#token=${token}`, 1920, 1080);
   await sleep(1000);
   expect(await js(`document.querySelectorAll("#legend li").length`) === 4, "projector shows every program");
   await shot("watch-running");

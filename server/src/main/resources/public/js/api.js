@@ -33,23 +33,52 @@ export async function api(method, path, body, headers = {}) {
 }
 
 /**
- * Follows the live game over a WebSocket, reconnecting automatically.
- * onFrame(game) gets every frame; onConnection(true/false) reports the link.
+ * Follows the live simulation over a WebSocket (instructor only), reconnecting
+ * automatically. onFrame(game) gets every frame; onConnection(true/false)
+ * reports the link; onDenied() runs if the server rejects the token, and then
+ * it stops trying. Returns a function that stops following.
  */
-export function followLiveGame(onFrame, onConnection = () => {}) {
+export function followLiveGame(token, onFrame, onConnection = () => {}, onDenied = () => {}) {
   let delay = 500;
+  let stopped = false;
+  let ws = null;
   function connect() {
     const scheme = location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${scheme}://${location.host}/ws/game`);
+    ws = new WebSocket(`${scheme}://${location.host}/ws/game?token=${encodeURIComponent(token)}`);
     ws.onopen = () => { delay = 500; onConnection(true); };
     ws.onmessage = event => onFrame(JSON.parse(event.data));
-    ws.onclose = () => {
+    ws.onclose = event => {
+      if (stopped) return;
+      if (event.code === 1008) {  // the server's "wrong token" close
+        stopped = true;
+        onDenied();
+        return;
+      }
       onConnection(false);
       setTimeout(connect, delay);
       delay = Math.min(delay * 2, 5000);
     };
   }
   connect();
+  return () => {
+    stopped = true;
+    ws?.close();
+  };
+}
+
+/**
+ * The instructor token from a page link like /admin#token=..., removed from
+ * the address bar so it isn't left on screen; otherwise the saved one.
+ */
+export function instructorToken() {
+  const match = location.hash.match(/token=([^&]+)/);
+  if (match) {
+    history.replaceState(null, "", location.pathname);
+    const token = decodeURIComponent(match[1]);
+    store.set("bw.token", token);
+    return token;
+  }
+  return store.get("bw.token");
 }
 
 /** Shows a short message in the corner of the page. */

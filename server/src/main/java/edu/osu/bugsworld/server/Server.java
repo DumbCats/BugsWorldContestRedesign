@@ -29,20 +29,23 @@ import java.util.Map;
  *
  * <p>Students write their programs on their own and upload the .bl file
  * here; the professor runs everyone's programs together in one simulation
- * to check how well they work.
+ * to check how well they work. Students can only upload and submit: the
+ * simulation itself (its data, the live WebSocket and the projector view's
+ * data) needs the instructor token.
  *
  * <pre>
- * Pages:  /  (students: upload and submit a .bl file)   /watch  (projector)   /admin  (professor)
+ * Pages:  /  (students: upload and submit a .bl file)
+ *         /watch (projector) and /admin (professor): their data needs the instructor token
  * Public (students, projector)
  *   GET  /api/health
- *   GET  /api/info                    {requiresClassCode, studentUrls}
+ *   GET  /api/info                    {requiresClassCode}
  *   POST /api/compile                 {source}            compile only, nothing stored
  *   POST /api/submissions             {student, source}   needs X-Class-Code if one is set
- *   GET  /api/game                    current simulation (same JSON as the WebSocket)
- *   WS   /ws/game                     live simulation frames
  * Instructor (Authorization: Bearer TOKEN)
  *   GET    /api/admin/check
  *   GET    /api/admin/info            {studentUrls, classCode}
+ *   GET    /api/admin/game            current simulation (same JSON as the WebSocket)
+ *   WS     /ws/game?token=TOKEN       live simulation frames (closed with 1008 if the token is wrong)
  *   GET    /api/admin/submissions     [{id, student, programName, createdAt, warnings}]
  *   GET    /api/admin/submissions/{id}   with source and warning details; DELETE removes it
  *   POST   /api/admin/game            new simulation {rows, columns, bugsPerSpecies, seed, ...}
@@ -119,21 +122,27 @@ public final class Server implements AutoCloseable {
 
         // Public
         c.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
-        c.routes.get("/api/info", ctx -> ctx.json(Map.of(
-                "requiresClassCode", config.classCode() != null,
-                "studentUrls", Network.studentUrls(port()))));
+        c.routes.get("/api/info", ctx ->
+                ctx.json(Map.of("requiresClassCode", config.classCode() != null)));
         c.routes.post("/api/compile", this::compile);
         c.routes.post("/api/submissions", this::submit);
-        c.routes.get("/api/game", ctx -> ctx.json(runner.view()));
-        c.routes.ws("/ws/game", ws -> {
-            ws.onConnect(viewers::connect);
-            ws.onClose(viewers::disconnect);
-            ws.onError(viewers::disconnect);
-        });
 
         // Instructor
         c.routes.before("/api/admin/*", this::requireInstructor);
         c.routes.get("/api/admin/check", ctx -> ctx.status(204));
+        c.routes.get("/api/admin/game", ctx -> ctx.json(runner.view()));
+        // Browsers can't put headers on a WebSocket, so the token comes as ?token=.
+        c.routes.ws("/ws/game", ws -> {
+            ws.onConnect(ctx -> {
+                if (!isInstructorToken(ctx.queryParam("token"))) {
+                    ctx.closeSession(1008, "Instructor token required");
+                    return;
+                }
+                viewers.connect(ctx);
+            });
+            ws.onClose(viewers::disconnect);
+            ws.onError(viewers::disconnect);
+        });
         c.routes.get("/api/admin/info", ctx -> {
             Map<String, Object> info = new java.util.LinkedHashMap<>();
             info.put("studentUrls", Network.studentUrls(port()));
@@ -281,13 +290,16 @@ public final class Server implements AutoCloseable {
 
     private void requireInstructor(Context ctx) {
         String header = ctx.header("Authorization");
-        String given = header != null && header.startsWith("Bearer ") ? header.substring(7).trim()
-                : "";
-        boolean ok = MessageDigest.isEqual(given.getBytes(StandardCharsets.UTF_8),
-                config.instructorToken().getBytes(StandardCharsets.UTF_8));
-        if (!ok) {
+        String given = header != null && header.startsWith("Bearer ") ? header.substring(7) : null;
+        if (!isInstructorToken(given)) {
             throw new ApiException(401, "Instructor token required");
         }
+    }
+
+    /** Constant-time comparison, so timing doesn't reveal the token. */
+    private boolean isInstructorToken(String given) {
+        return given != null && MessageDigest.isEqual(given.trim().getBytes(StandardCharsets.UTF_8),
+                config.instructorToken().getBytes(StandardCharsets.UTF_8));
     }
 
     private void saveResult(GameView result) {

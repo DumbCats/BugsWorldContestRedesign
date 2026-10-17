@@ -1,6 +1,8 @@
 // Projector view: the live simulation, as large as the screen allows.
+// Professor only: it needs the instructor token (from the dashboard's link,
+// the browser's saved sign-in, or typed in).
 
-import { api, el, followLiveGame } from "./api.js";
+import { api, el, followLiveGame, instructorToken, store } from "./api.js";
 import { drawWorld, renderLegend, speciesColor } from "./world.js";
 
 const $ = id => document.getElementById(id);
@@ -60,17 +62,52 @@ document.addEventListener("keydown", event => {
 });
 window.addEventListener("resize", render);
 
-api("GET", "/api/info").then(info => {
-  studentUrls = info.studentUrls || [];
-  render();
-}).catch(() => {});
+/** Shows the token form (when there is no token, or the server refused it). */
+function showLogin(message) {
+  $("main").classList.add("hidden");
+  $("status").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  $("login-error").textContent = message || "";
+  $("login-error").classList.toggle("hidden", !message);
+  $("token").focus();
+}
 
-followLiveGame(frame => {
-  game = frame;
-  render();
-}, connected => {
-  if (!connected) {
-    $("status").textContent = "Reconnecting…";
-    $("status").className = "pill err";
-  }
+function show(token) {
+  $("login").classList.add("hidden");
+  $("status").classList.remove("hidden");
+  $("main").classList.remove("hidden");
+  api("GET", "/api/admin/info", undefined, { Authorization: `Bearer ${token}` }).then(info => {
+    studentUrls = info.studentUrls || [];
+    render();
+  }).catch(() => {});
+  if (stopFollowing) stopFollowing();
+  stopFollowing = followLiveGame(token, frame => {
+    game = frame;
+    render();
+  }, connected => {
+    if (!connected) {
+      $("status").textContent = "Reconnecting…";
+      $("status").className = "pill err";
+    }
+  }, () => {
+    store.remove("bw.token");
+    showLogin("That token isn't right. Check the BugsWorld window.");
+  });
+}
+
+$("login-form").onsubmit = event => {
+  event.preventDefault();
+  const token = $("token").value.trim();
+  store.set("bw.token", token);
+  show(token);
+};
+
+// The dashboard's link may also be opened in a tab already showing this page.
+let stopFollowing = null;
+window.addEventListener("hashchange", () => {
+  if (location.hash.includes("token=")) show(instructorToken());
 });
+
+const token = instructorToken();
+if (token) show(token);
+else showLogin();

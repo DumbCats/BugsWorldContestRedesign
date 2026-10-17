@@ -139,6 +139,7 @@ The purpose is to check students' code-writing ability. Students write programs 
   - it's compiled at once, and the student sees their code read-only with errors and warnings underlined and marked in the margin;
   - each problem shows a hint, and clicking it highlights its line;
   - **Submit** is enabled only when the program compiles.
+- [x] **Professor only:** students can upload and submit, nothing else. The simulation's data is `GET /api/admin/game`, and the live WebSocket needs `?token=` (it closes with 1008 otherwise). The projector page asks for the token unless it's opened from the dashboard (`/watch#token=…`) or the browser is already signed in.
 - [x] **Projector (`/watch`):**
   - dark theme, a world as large as the screen allows, and a large legend with counts, share bars and min/max;
   - before the start it shows the address to submit at; when finished, every program's final count;

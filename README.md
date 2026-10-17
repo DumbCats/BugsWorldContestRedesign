@@ -16,10 +16,11 @@ You don't need a VPN, ssh, X11 or anything installed on student computers.
 3. **Tell students the address** shown at the top of the dashboard (for example `192.168.1.133:7070`).
    - Their laptops must be on the same network as yours.
    - The projector view shows the address too, until the simulation starts.
+   - Students can only upload and submit. The simulation is shown only on your dashboard and projector view, which need your instructor token.
 4. **When submissions are in:**
    - Each one shows its compiler warnings (⚠). **View** shows the code with the warnings marked.
    - Press **Load everyone's newest program**.
-   - Press **Open projector view**, then **Start**. Use <kbd>Space</kbd> to pause and <kbd>→</kbd> to step one tick.
+   - Press **Open projector view** (it opens already signed in), then **Start**. Use <kbd>Space</kbd> to pause and <kbd>→</kbd> to step one tick.
 5. **When a run finishes:**
    - The projector lists every program's final bug count.
    - **Rerun** repeats the exact same run.

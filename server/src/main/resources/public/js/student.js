@@ -1,6 +1,6 @@
 // Student page: upload a .bl file, see whether it compiles, submit it.
 
-import { api, ApiError, el, followLiveGame, store } from "./api.js";
+import { api, ApiError, el, store } from "./api.js";
 import { renderCode, revealLine } from "./codeview.js";
 
 const MAX_LENGTH = 100_000; // same limit as the server
@@ -124,9 +124,3 @@ function say(node, kind, text) {
 api("GET", "/api/info")
   .then(info => $("code-field").classList.toggle("hidden", !info.requiresClassCode))
   .catch(() => {});
-
-followLiveGame(game => {
-  const running = game.status === "running";
-  $("live").textContent = running ? "Simulation running: watch" : "Watch the simulation";
-  $("live").className = running ? "button small pill live" : "button small";
-});

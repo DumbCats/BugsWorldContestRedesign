@@ -105,7 +105,7 @@ class ServerTest {
         }
         JsonNode info = send("GET", "/api/info", null, null).body();
         assertFalse(info.get("requiresClassCode").asBoolean());
-        assertTrue(info.get("studentUrls").isArray());
+        assertFalse(info.has("studentUrls"), "public info reveals nothing about the simulation");
     }
 
     @Test
@@ -117,6 +117,36 @@ class ServerTest {
         assertEquals(first, ServerConfig.fromEnvironment(env).instructorToken());
         assertEquals("mine", ServerConfig.fromEnvironment(java.util.Map.of("BUGSWORLD_DATA_DIR",
                 dir.toString(), "BUGSWORLD_INSTRUCTOR_TOKEN", " mine ")).instructorToken());
+    }
+
+    @Test
+    void studentsCannotSeeTheSimulation() throws Exception {
+        long id = submit("Ann", HUNTER);
+        admin("POST", "/api/admin/game/species", java.util.Map.of("submissionId", id));
+        assertEquals(404, http.send(HttpRequest.newBuilder(URI.create(base + "/api/game")).build(),
+                HttpResponse.BodyHandlers.ofString()).statusCode(), "no public game endpoint");
+        assertEquals(401, send("GET", "/api/admin/game", null, null).status());
+        for (String query : new String[] {"", "?token=", "?token=wrong"}) {
+            java.util.concurrent.CompletableFuture<Integer> closed = new java.util.concurrent.CompletableFuture<>();
+            BlockingQueue<CharSequence> frames = new LinkedBlockingQueue<>();
+            http.newWebSocketBuilder().buildAsync(
+                    URI.create("ws://localhost:" + server.port() + "/ws/game" + query),
+                    new WebSocket.Listener() {
+                        @Override
+                        public CompletionStage<?> onText(WebSocket socket, CharSequence data, boolean last) {
+                            frames.add(data);
+                            return null;
+                        }
+
+                        @Override
+                        public CompletionStage<?> onClose(WebSocket socket, int code, String reason) {
+                            closed.complete(code);
+                            return null;
+                        }
+                    }).get(5, TimeUnit.SECONDS);
+            assertEquals(1008, closed.get(5, TimeUnit.SECONDS), "closed for " + query);
+            assertTrue(frames.isEmpty(), "no frames without the token (" + query + ")");
+        }
     }
 
     @Test
@@ -277,12 +307,12 @@ class ServerTest {
         admin("POST", "/api/admin/game/species", java.util.Map.of("submissionId", hunter));
         assertEquals("running", admin("POST", "/api/admin/game/start", null).body()
                 .get("status").asText());
-        assertEquals("running", send("GET", "/api/game", null, null).body()
+        assertEquals("running", admin("GET", "/api/admin/game", null).body()
                 .get("status").asText());
         assertEquals("setup", admin("POST", "/api/admin/game/pause", null).body()
                 .get("status").asText(), "paused before the first tick is still setup");
         admin("POST", "/api/admin/game/step", null);
-        assertEquals("paused", send("GET", "/api/game", null, null).body()
+        assertEquals("paused", admin("GET", "/api/admin/game", null).body()
                 .get("status").asText());
     }
 
@@ -328,7 +358,7 @@ class ServerTest {
 
         BlockingQueue<JsonNode> frames = new LinkedBlockingQueue<>();
         WebSocket ws = http.newWebSocketBuilder().buildAsync(
-                URI.create("ws://localhost:" + server.port() + "/ws/game"), new WebSocket.Listener() {
+                URI.create("ws://localhost:" + server.port() + "/ws/game?token=" + TOKEN), new WebSocket.Listener() {
                     private final StringBuilder partial = new StringBuilder();
 
                     @Override
@@ -367,7 +397,7 @@ class ServerTest {
     private JsonNode waitForStatus(String status) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (System.nanoTime() < deadline) {
-            JsonNode game = send("GET", "/api/game", null, null).body();
+            JsonNode game = admin("GET", "/api/admin/game", null).body();
             if (game.get("status").asText().equals(status)) {
                 return game;
             }

@@ -1,6 +1,6 @@
 // Professor dashboard: submissions, the simulation's controls, settings, results.
 
-import { api, ApiError, el, followLiveGame, store, timeAgo, toast } from "./api.js";
+import { api, ApiError, el, followLiveGame, instructorToken, store, timeAgo, toast } from "./api.js";
 import { renderCode } from "./codeview.js";
 import { drawWorld, renderLegend, speciesColor } from "./world.js";
 
@@ -8,7 +8,7 @@ const $ = id => document.getElementById(id);
 let token = "";
 let game = null;
 let submissions = [];
-let following = false;
+let stopFollowing = null;
 let pollTimer = 0;
 
 // ------------------------------------------------------------------- auth
@@ -22,23 +22,16 @@ async function admin(method, path, body) {
   }
 }
 
-/** Returns the token from an /admin#token=... link, removing it from the address bar. */
-function takeTokenFromAddress() {
-  // The server opens /admin#token=... so the professor never has to type it.
-  const match = location.hash.match(/token=([^&]+)/);
-  if (!match) return null;
-  history.replaceState(null, "", location.pathname);
-  return decodeURIComponent(match[1]);
-}
-
+// The server opens /admin#token=... so the professor never has to type it.
 // The link may also be pasted into a tab that already shows the dashboard.
 window.addEventListener("hashchange", () => {
-  const linked = takeTokenFromAddress();
-  if (linked) signIn(linked);
+  if (location.hash.includes("token=")) signIn(instructorToken());
 });
 
 function showLogin(message) {
   clearInterval(pollTimer);
+  if (stopFollowing) stopFollowing();
+  stopFollowing = null;
   $("dashboard").classList.add("hidden");
   $("share").classList.add("hidden");
   $("logout").classList.add("hidden");
@@ -65,11 +58,11 @@ async function signIn(candidate) {
   loadSubmissions();
   clearInterval(pollTimer);
   pollTimer = setInterval(loadSubmissions, 3000);
-  if (!following) {
-    following = true;
-    followLiveGame(frame => { game = frame; renderGame(); },
-      connected => { if (!connected) setStatus("err", "Reconnecting…"); });
-  }
+  $("projector").href = `/watch#token=${encodeURIComponent(token)}`;
+  if (stopFollowing) stopFollowing();
+  stopFollowing = followLiveGame(token, frame => { game = frame; renderGame(); },
+    connected => { if (!connected) setStatus("err", "Reconnecting…"); },
+    () => showLogin("Your session ended. Sign in again."));
 }
 
 $("login-form").onsubmit = event => {
@@ -415,6 +408,6 @@ $("results-box").addEventListener("toggle", () => { if ($("results-box").open) l
 
 // -------------------------------------------------------------------- start
 
-const initial = takeTokenFromAddress() || store.get("bw.token");
+const initial = instructorToken();
 if (initial) signIn(initial);
 else showLogin();
