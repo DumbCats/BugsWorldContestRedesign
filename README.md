@@ -10,7 +10,7 @@ You don't need a VPN, ssh, X11 or anything installed on student computers.
 ## Running a lab (professor)
 
 1. **Install Java 21 or newer** on the computer that will run the simulation, if it doesn't have it. Any free build works, for example from [adoptium.net](https://adoptium.net).
-2. **Unzip `bugsworld.zip`** and run `bugsworld/bin/bugsworld.bat` on Windows or `bugsworld/bin/bugsworld` on macOS and Linux.
+2. **Unzip `bugsworld.zip`** and double-click `Start BugsWorld (Windows).bat` or `Start BugsWorld (Mac).command`; on Linux, run `bin/bugsworld`. `START-HERE.txt` in the zip walks through it, including trying it alone with the example programs.
    - Your browser opens the dashboard, already signed in.
    - Keep the window that opened.
 3. **Tell students the address** shown at the top of the dashboard (for example `192.168.1.133:7070`).

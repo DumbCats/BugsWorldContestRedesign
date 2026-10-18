@@ -22,7 +22,7 @@ engine/   pure Java, no runtime dependencies
   vm:       BugProgram (precomputed "can still act") + Vm.step -> Action
   sim:      Game (placement, ticks, stats), Snapshot, Event, AsciiRenderer; Simulate CLI
 server/   Javalin: Server (routes), GameRunner (game thread), LiveViewers (WebSocket),
-          Database (SQLite); static page in resources/public
+          Database (one JSON file); static pages in resources/public
 server/src/main/resources/public/   web pages: / (students upload .bl files), /watch (projector), /admin (professor)
 tools/oracle/   scripts that run the OSU jars as a test oracle
 samples/  example bugs (also used by the tests)
@@ -120,7 +120,7 @@ Code is in `server/`. `Server.java` lists every endpoint.
 - [x] `WS /ws/game` sends the full `GameView` (bugs flattened to five numbers each) when a viewer connects, then on every change.
   - At most 20 frames per second, however fast the game ticks.
   - A viewer still receiving the previous frame skips to the next one, so a slow laptop can't hold anyone up.
-- [x] SQLite (`data/bugsworld.db`, gitignored) stores submissions and finished-game results, so they survive restarts.
+- [x] Submissions and finished-run results are kept in one readable JSON file (`bugsworld.json` in the data folder), rewritten safely after each change, so they survive restarts. (This replaced SQLite, whose native libraries made up half the download.)
 - [x] Access:
   - `/api/admin/*` needs `Authorization: Bearer <BUGSWORLD_INSTRUCTOR_TOKEN>`. If the variable isn't set, a token is generated and printed at startup.
   - If `BUGSWORLD_CLASS_CODE` is set, submitting needs the `X-Class-Code` header.
@@ -165,6 +165,12 @@ The purpose is to check students' code-writing ability. Students write programs 
   - **`tools/ui-check/ui-check.mjs`** drives all three pages in headless Chrome. It uploads a broken file, a correct one and one with warnings, then submits, signs in by link, checks the warning badge and View, loads everyone, starts and pauses, finishes, and checks the final counts and past runs. It fails on any JavaScript error and saves screenshots.
 
 ### Phase 6: Deploy (partly done)
+- [x] **Emailable prototype:** `./gradlew :server:distZip` builds `server/build/distributions/bugsworld.zip` (about 9 MB). It contains:
+  - `START-HERE.txt` for the professor;
+  - double-click starters, `Start BugsWorld (Windows).bat` and `Start BugsWorld (Mac).command`;
+  - `examples/*.bl` to try uploading.
+- [x] The entry point is `Launcher`, compiled for Java 8. On older Java it explains that Java 21+ is needed (a dialog on desktops) instead of crashing. Tested with a real Java 8.
+- [x] The dashboard's "Add example programs to try it out" (`POST /api/admin/examples`) lets the professor run a full simulation alone.
 - [x] `./gradlew :server:distZip` builds `bugsworld.zip` with `bin/bugsworld` and `bugsworld.bat`, and needs only Java 21+.
   - Startup prints a short block: dashboard, token, student addresses, class code, data folder.
   - It opens the dashboard and keeps data in `~/BugsWorld`.

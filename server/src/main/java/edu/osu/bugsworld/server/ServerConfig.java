@@ -10,7 +10,7 @@ import java.util.Map;
  * Server settings, read from environment variables.
  *
  * @param port            HTTP port ({@code PORT}, default 7070)
- * @param dataDir         where the SQLite database lives ({@code BUGSWORLD_DATA_DIR}, default
+ * @param dataDir         where submissions and results are kept (bugsworld.json) ({@code BUGSWORLD_DATA_DIR}, default
  *                        {@code BugsWorld} in the user's home folder, so it doesn't depend on
  *                        where the start script was launched from and survives upgrades)
  * @param instructorToken required for {@code /api/admin} ({@code BUGSWORLD_INSTRUCTOR_TOKEN};

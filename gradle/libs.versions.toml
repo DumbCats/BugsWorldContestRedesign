@@ -3,7 +3,6 @@ jackson = "2.22.1"
 javalin = "7.2.3"
 junit = "6.1.3"
 slf4j = "2.0.17"
-sqlite = "3.53.2.1"
 
 [libraries]
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
@@ -11,5 +10,4 @@ javalin = { module = "io.javalin:javalin", version.ref = "javalin" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
-sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }

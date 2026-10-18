@@ -150,6 +150,45 @@ class ServerTest {
     }
 
     @Test
+    void exampleProgramsCanBeAddedToTryItOut() throws Exception {
+        assertEquals(401, send("POST", "/api/admin/examples", null, null).status());
+        Response r = admin("POST", "/api/admin/examples", null);
+        assertEquals(201, r.status());
+        assertEquals(4, r.body().size());
+        JsonNode list = admin("GET", "/api/admin/submissions", null).body();
+        assertEquals(4, list.size());
+        for (JsonNode s : list) {
+            assertTrue(s.get("student").asText().startsWith("Example: "));
+            assertEquals(0, s.get("warnings").asInt(), "examples are clean code");
+        }
+    }
+
+    @Test
+    void storageIsAReadableJsonFileThatSurvivesCorruption() throws Exception {
+        submit("Ann", HUNTER);
+        Path file = data.resolve("bugsworld.json");
+        assertTrue(java.nio.file.Files.readString(file).contains("\"student\" : \"Ann\""));
+        server.close();
+        java.nio.file.Files.writeString(file, "{ not json");
+        server = Server.start(new ServerConfig(0, data, TOKEN, null));
+        base = "http://localhost:" + server.port();
+        assertEquals(0, admin("GET", "/api/admin/submissions", null).body().size());
+        try (var files = java.nio.file.Files.list(data)) {
+            assertTrue(files.anyMatch(p -> p.getFileName().toString().startsWith("bugsworld.json.unreadable-")),
+                    "the unreadable file is kept, not deleted");
+        }
+    }
+
+    @Test
+    void launcherReadsJavaVersions() {
+        assertEquals(8, Launcher.majorVersion("1.8"));
+        assertEquals(17, Launcher.majorVersion("17"));
+        assertEquals(21, Launcher.majorVersion("21"));
+        assertEquals(25, Launcher.majorVersion("25-ea"));
+        assertEquals(0, Launcher.majorVersion("x"));
+    }
+
+    @Test
     void health() throws Exception {
         assertEquals("ok", send("GET", "/api/health", null, null).body().get("status").asText());
     }

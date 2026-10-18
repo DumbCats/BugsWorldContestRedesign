@@ -151,6 +151,15 @@ function renderSubmissions() {
 }
 
 $("search").oninput = renderSubmissions;
+$("add-examples").onclick = async () => {
+  try {
+    const added = await admin("POST", "/api/admin/examples");
+    toast(`Added ${added.length} example programs`);
+    loadSubmissions();
+  } catch (e) {
+    toast(e.message, "err");
+  }
+};
 $("latest-only").onchange = renderSubmissions;
 
 async function addSpecies(submissionId) {

@@ -48,6 +48,7 @@ import java.util.Map;
  *   WS     /ws/game?token=TOKEN       live simulation frames (closed with 1008 if the token is wrong)
  *   GET    /api/admin/submissions     [{id, student, programName, createdAt, warnings}]
  *   GET    /api/admin/submissions/{id}   with source and warning details; DELETE removes it
+ *   POST   /api/admin/examples        adds the bundled example programs as submissions (for trying it out)
  *   POST   /api/admin/game            new simulation {rows, columns, bugsPerSpecies, seed, ...}
  *   POST   /api/admin/game/species    {submissionId, name?}
  *   DELETE /api/admin/game/species/{id}
@@ -167,6 +168,16 @@ public final class Server implements AutoCloseable {
             }
             warningCache.remove(id);
             ctx.status(204);
+        });
+        c.routes.post("/api/admin/examples", ctx -> {
+            List<Map<String, Object>> added = new java.util.ArrayList<>();
+            for (Examples.Example e : Examples.all()) {
+                CompileResult r = Compiler.compile(e.source());
+                Database.Submission s = db.addSubmission("Example: " + e.name(),
+                        r.program().name(), e.source());
+                added.add(Map.of("id", s.id(), "student", s.student()));
+            }
+            ctx.status(201).json(added);
         });
         c.routes.post("/api/admin/game", this::newGame);
         c.routes.post("/api/admin/game/species", this::addSpecies);
