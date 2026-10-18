@@ -1,0 +1,55 @@
+BugsWorld (prototype)
+=====================
+
+A browser-based replacement for the BugsWorld lab. Students upload the .bl
+file they wrote and see compile errors right away, with line numbers and
+hints, then submit. You run everyone's programs together in one simulation
+and show it on the projector. Students install nothing.
+
+
+1. Java 21 or newer
+-------------------
+To check, open a terminal (Command Prompt on Windows) and type:  java -version
+If Java is missing or older than 21, install the free Temurin build from
+https://adoptium.net. BugsWorld also tells you if your Java is too old.
+
+
+2. Start BugsWorld
+------------------
+Windows:  double-click  "Start BugsWorld (Windows).bat"
+Mac:      double-click  "Start BugsWorld (Mac).command"
+          The first time, macOS may refuse to open a downloaded file:
+          right-click it, choose Open, then choose Open again.
+Linux:    run  bin/bugsworld
+
+A window shows the server's messages; keep it open while you use BugsWorld.
+Your browser opens the professor dashboard, already signed in. If it
+doesn't, the window shows the link to open.
+If your firewall asks whether Java may accept network connections, allow
+it. Students' computers need to reach yours.
+
+
+3. Try it on your own (about 2 minutes)
+---------------------------------------
+- On the dashboard, click "Add example programs to try it out".
+- Click "Load everyone's newest program", then "Open projector view",
+  then Start. Space pauses, the right arrow key steps one tick.
+- To see what students see, open http://localhost:7070 in another tab
+  and upload a file from the "examples" folder. Change a keyword or a
+  name in one first to see the error messages.
+
+
+4. In class
+-----------
+Students open the address shown at the top of the dashboard (something
+like 192.168.1.20:7070) from a computer on the same network as yours.
+They can only upload and submit. The simulation is visible only on your
+dashboard and projector view, which need your instructor token.
+
+Some campus Wi-Fi networks block computers from reaching each other. A
+quick check in the classroom: open that address from your phone on the
+same Wi-Fi. If the upload page appears, students will reach it too.
+
+
+To stop BugsWorld, close its window (or press Ctrl+C in it). Submissions
+and results are kept in the "BugsWorld" folder in your home folder.

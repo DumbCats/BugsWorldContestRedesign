@@ -176,3 +176,6 @@ reference/
 
 # --- UI check screenshots (tools/ui-check) ---
 ui-check-out/
+
+# The download's top-level files (START-HERE.txt, starters) live here.
+!server/src/dist/
